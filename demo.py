@@ -1,11 +1,12 @@
-from goap import Action, Goal, Director, Planner
+from goap import Action, Goal, Director, Planner, Variable
 from fsm import FiniteStateMachine
 from state import State
 from time import monotonic
 from enums import EvaluationState
 
 
-class GotoFuture:
+class GoToFuture:
+
     def __init__(self, target, threshold=0.5):
         self.target = target
         self.status = EvaluationState.running
@@ -14,6 +15,10 @@ class GotoFuture:
 
     def on_completed(self):
         self.status = EvaluationState.success
+
+
+class GetAnimal(Action):
+    effects = {"has_animal": Variable("has_animal")}
 
 
 class ChaseTarget(Action):
@@ -25,7 +30,7 @@ class ChaseTarget(Action):
 
     def on_enter(self, world_state, goal_state):
         target = world_state['target']
-        world_state.fsm.states['GOTO'].request = GotoFuture(target)
+        world_state.fsm.states['GOTO'].request = GoToFuture(target)
 
     def get_status(self, world_state):
         goto_state = world_state.fsm.states['GOTO']
@@ -84,7 +89,7 @@ class GetNearestAmmoPickup(Action):
         player = world_state.player
         nearest_pickup = min([o for o in player.scene.objects if "ammo" in o and "pickup" in o],
                              key=player.getDistanceTo)
-        goto_state.request = GotoFuture(nearest_pickup)
+        goto_state.request = GoToFuture(nearest_pickup)
 
     def on_exit(self, world_state, goal_state):
         goto_state = world_state.fsm.states['GOTO']
@@ -97,7 +102,7 @@ class GetNearestAmmoPickup(Action):
 
 class KillEnemyGoal(Goal):
     """Kill enemy if target exists"""
-    state = {"target_is_dead": True}
+    state = {"target_is_dead": True, "has_animal": "dog"}
 
     def get_relevance(self, world_state):
         if world_state["target"] is not None:

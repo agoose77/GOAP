@@ -49,7 +49,6 @@ class Goal:
 
 
 class Action:
-
     cost = 1
     precedence = 0
 
@@ -151,9 +150,6 @@ class ActionNode(NodeBase):
 
         self.action = action
 
-    # def __lt__(self, other):
-    #     return self.action.precedence < other.action.precedence
-
     def __repr__(self):
         return "<GOAPAStarActionNode {}>".format(self.action)
 
@@ -180,7 +176,6 @@ class ActionNode(NodeBase):
 
         # 2 Update goal state from action preconditions, resolve variables
         for key, value in action_preconditions.items():
-
             if isinstance(value, Variable):
                 value = value.resolve(self.goal_state)
 
@@ -228,7 +223,6 @@ class Planner(AStarAlgorithm):
 
         :param node: node to evaluate heuristic
         """
-        node.update_internal_states(self.world_state)
         return len(node.unsatisfied_keys)
 
     def get_g_score(self, current, node):
@@ -263,12 +257,16 @@ class Planner(AStarAlgorithm):
                 continue
 
             # Create new node instances for every node
-            effect_neighbours = [ActionNode(a) for a in actions
+            effect_neighbours = [ActionNode(a) for a in actions  # Don't re-use action nodes, to allow multiple paths
                                  # Ensure action can be included at this stage
                                  if a.check_procedural_precondition(world_state, goal_state, is_planning=True) and
                                  # Ensure we don't get recursive neighbours!
                                  a is not node_action]
             neighbours.extend(effect_neighbours)
+
+        # If we reused nodes, we'd need this step separate from the initialiser ActionNode()
+        for node in neighbours:
+            node.update_internal_states(world_state)
 
         neighbours.sort(key=_key_action_precedence)
         return neighbours
@@ -445,7 +443,7 @@ class Director:
         # Try all goals to see if we can satisfy them
         for goal in self.sorted_goals:
             # Check the goal isn't satisfied already
-            print(goal,self.world_state)
+
             if goal.is_satisfied(self.world_state):
                 continue
 
@@ -465,7 +463,6 @@ class Director:
         if self._plan is None:
             try:
                 self._plan = self.find_best_plan()
-                print(self._plan)
 
             except PlannerFailedException as err:
                 logger.exception("Unexpected error in finding plan")
@@ -477,7 +474,7 @@ class Director:
                 return
 
             elif plan_state == EvaluationState.failure:
-                print("Plan failed during execution of '{}'".format(self._plan.current_plan_step))
+                logger.warn("Plan failed during execution of '{}'".format(self._plan.current_plan_step))
 
             self._plan = None
             self.update()
