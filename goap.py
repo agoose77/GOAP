@@ -7,45 +7,12 @@ from astar import AStarAlgorithm, PathNotFoundException, AStarNode
 
 from logging import getLogger
 
-__all__ = "Goal", "Action", "Planner", "GOAPAIPlanManager", "GOAPAStarActionNode", "GOAPAStarGoalNode", "Goal"
+__all__ = "Goal", "Action", "Planner", "GOAPAIPlanManager", "GOAPActionNode", "GOAPGoalNode", "Goal"
 
 
 logger = getLogger(__name__)
 
 MAX_FLOAT = float_info.max
-
-
-def total_ordering(cls):
-    """Class decorator that fills-in missing ordering methods"""
-    convert = {
-        '__lt__': [('__gt__', lambda self, other: other < self),
-                   ('__le__', lambda self, other: not other < self),
-                   ('__ge__', lambda self, other: not self < other)],
-        '__le__': [('__ge__', lambda self, other: other <= self),
-                   ('__lt__', lambda self, other: not other <= self),
-                   ('__gt__', lambda self, other: not self <= other)],
-        '__gt__': [('__lt__', lambda self, other: other > self),
-                   ('__ge__', lambda self, other: not  other > self),
-                   ('__le__', lambda self, other: not self > other)],
-        '__ge__': [('__le__', lambda self, other: other >= self),
-                   ('__gt__', lambda self, other: not other >= self),
-                   ('__lt__', lambda self, other: not self >= other)]
-    }
-    if hasattr(object, '__lt__'):
-        roots = [op for op in convert if getattr(cls, op) is not getattr(object, op)]
-
-    else:
-        roots = set(dir(cls)) & set(convert)
-
-    assert roots, 'must define at least one ordering operation: < > <= >='
-    root = max(roots)       # prefer __lt __ to __le__ to __gt__ to __ge__
-    for opname, opfunc in convert[root]:
-        if opname not in roots:
-            opfunc.__name__ = opname
-            opfunc.__doc__ = getattr(int, opname).__doc__
-            setattr(cls, opname, opfunc)
-
-    return cls
 
 
 class Variable:
@@ -139,7 +106,7 @@ class Action:
         return True
 
 
-class IGOAPAStarNode(AStarNode):
+class IGOAPNode(AStarNode):
 
     f_score = MAX_FLOAT
 
@@ -169,14 +136,14 @@ class IGOAPAStarNode(AStarNode):
         return True
 
 
-class GOAPAStarGoalNode(IGOAPAStarNode):
+class GOAPGoalNode(IGOAPNode):
     """GOAP A* Goal Node"""
 
     def __repr__(self):
         return "<GOAPAStarGoalNode: {}>".format(self.goal_state)
 
 
-class GOAPAStarActionNode(IGOAPAStarNode, AStarNode):
+class GOAPActionNode(IGOAPNode):
     """A* Node with associated GOAP action"""
 
     def __init__(self, action):
@@ -241,7 +208,7 @@ class Planner(AStarAlgorithm):
         """
         world_state = self.world_state
 
-        goal_node = GOAPAStarGoalNode()
+        goal_node = GOAPGoalNode()
         goal_node.current_state = {k: world_state.get(k) for k in goal_state}
         goal_node.goal_state = goal_state
 
@@ -296,7 +263,7 @@ class Planner(AStarAlgorithm):
                 continue
 
             # Create new node instances for every node
-            effect_neighbours = [GOAPAStarActionNode(a) for a in actions
+            effect_neighbours = [GOAPActionNode(a) for a in actions
                                  # Ensure action can be included at this stage
                                  if a.check_procedural_precondition(world_state, goal_state, is_planning=True) and
                                  # Ensure we don't get recursive neighbours!
