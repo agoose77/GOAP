@@ -1,16 +1,16 @@
-from goap import Action, Goal, GoalManager, Planner
+from goap import Action, Goal, Director, Planner
 from fsm import FiniteStateMachine
 from state import State
 from time import monotonic
 from enums import EvaluationState
 
 
-class GOTORequest:
-
-    def __init__(self, target):
+class GotoFuture:
+    def __init__(self, target, threshold=0.5):
         self.target = target
         self.status = EvaluationState.running
         self.distance_to_target = -1.0
+        self.threshold = threshold
 
     def on_completed(self):
         self.status = EvaluationState.success
@@ -25,7 +25,7 @@ class ChaseTarget(Action):
 
     def on_enter(self, world_state, goal_state):
         target = world_state['target']
-        world_state.fsm.states['GOTO'].request = GOTORequest(target)
+        world_state.fsm.states['GOTO'].request = GotoFuture(target)
 
     def get_status(self, world_state):
         goto_state = world_state.fsm.states['GOTO']
@@ -84,7 +84,7 @@ class GetNearestAmmoPickup(Action):
         player = world_state.player
         nearest_pickup = min([o for o in player.scene.objects if "ammo" in o and "pickup" in o],
                              key=player.getDistanceTo)
-        goto_state.request = GOTORequest(nearest_pickup)
+        goto_state.request = GotoFuture(nearest_pickup)
 
     def on_exit(self, world_state, goal_state):
         goto_state = world_state.fsm.states['GOTO']
@@ -169,7 +169,6 @@ class GOTOState(State):
 
     def update(self):
         request = self.request
-
         if request is None:
             return
 
@@ -183,8 +182,8 @@ class GOTOState(State):
         distance = to_target.length
         request.distance_to_target = distance
 
-        if distance < 0.5:
-            request.status = EvaluationState.success
+        if distance < request.threshold:
+            request.on_completed()
 
         else:
             player.worldPosition += to_target.normalized() * 0.15
@@ -261,7 +260,6 @@ def init(cont):
     own = cont.owner
 
     world_state = GameObjDict(own)
-
     fsm = FiniteStateMachine()
 
     goto_state = GOTOState(world_state)
@@ -279,11 +277,11 @@ def init(cont):
 
     actions = Action.__subclasses__()
     goals = [c() for c in Goal.__subclasses__()]
-    print(goals)
-    planner = Planner(actions, world_state)
-    goap_ai_manager = GoalManager(planner, world_state, goals)
 
-    own['ai'] = goap_ai_manager
+    planner = Planner(actions, world_state)
+    director = Director(planner, world_state, goals)
+
+    own['ai'] = director
     own['fsm'] = fsm
     own['system_manager'] = sys_man
 

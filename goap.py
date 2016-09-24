@@ -7,7 +7,7 @@ from astar import AStarAlgorithm, PathNotFoundException, AStarNode
 
 from logging import getLogger
 
-__all__ = "Goal", "Action", "Planner", "GOAPAIPlanManager", "GOAPActionNode", "GOAPGoalNode", "Goal"
+__all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Goal", "Variable"
 
 
 logger = getLogger(__name__)
@@ -106,7 +106,7 @@ class Action:
         return True
 
 
-class IGOAPNode(AStarNode):
+class NodeBase(AStarNode):
 
     f_score = MAX_FLOAT
 
@@ -136,14 +136,14 @@ class IGOAPNode(AStarNode):
         return True
 
 
-class GOAPGoalNode(IGOAPNode):
+class GoalNode(NodeBase):
     """GOAP A* Goal Node"""
 
     def __repr__(self):
         return "<GOAPAStarGoalNode: {}>".format(self.goal_state)
 
 
-class GOAPActionNode(IGOAPNode):
+class ActionNode(NodeBase):
     """A* Node with associated GOAP action"""
 
     def __init__(self, action):
@@ -208,7 +208,7 @@ class Planner(AStarAlgorithm):
         """
         world_state = self.world_state
 
-        goal_node = GOAPGoalNode()
+        goal_node = GoalNode()
         goal_node.current_state = {k: world_state.get(k) for k in goal_state}
         goal_node.goal_state = goal_state
 
@@ -217,11 +217,11 @@ class Planner(AStarAlgorithm):
         node_path_next = iter(node_path)
         next(node_path_next)
 
-        plan_steps = [GOAPAIPlanStep(node.action, next_node.goal_state) for next_node, node in
+        plan_steps = [ActionPlanStep(node.action, next_node.goal_state) for next_node, node in
                       zip(node_path, node_path_next)]
         plan_steps.reverse()
 
-        return GOAPAIPlan(plan_steps)
+        return ActionPlan(plan_steps)
 
     def get_h_score(self, node, goal):
         """Rough estimate of cost of node, based upon satisfaction of goal state
@@ -263,7 +263,7 @@ class Planner(AStarAlgorithm):
                 continue
 
             # Create new node instances for every node
-            effect_neighbours = [GOAPActionNode(a) for a in actions
+            effect_neighbours = [ActionNode(a) for a in actions
                                  # Ensure action can be included at this stage
                                  if a.check_procedural_precondition(world_state, goal_state, is_planning=True) and
                                  # Ensure we don't get recursive neighbours!
@@ -328,11 +328,11 @@ class Planner(AStarAlgorithm):
         return parent.satisfies_goal_state(planner_state)
 
 
-class GOAPPlannerFailedException(Exception):
+class PlannerFailedException(Exception):
     pass
 
 
-class GOAPAIPlanStep:
+class ActionPlanStep:
     """Container object for bound action and its goal state"""
 
     def __init__(self, action, state):
@@ -343,7 +343,7 @@ class GOAPAIPlanStep:
         return repr(self.action)
 
 
-class GOAPAIPlan:
+class ActionPlan:
     """Manager of a series of Actions which fulfil a goal state"""
 
     def __init__(self, plan_steps):
@@ -409,7 +409,7 @@ class GOAPAIPlan:
         return finished_state
 
 
-class GoalManager:
+class Director:
     """Determine and update GOAP plans for AI"""
 
     def __init__(self, planner, world_state, goals):
@@ -455,7 +455,7 @@ class GoalManager:
             except PathNotFoundException:
                 continue
 
-        raise GOAPPlannerFailedException("Couldn't find suitable plan")
+        raise PlannerFailedException("Couldn't find suitable plan")
 
     def update(self):
         """Update current plan, or find new plan"""
@@ -467,7 +467,7 @@ class GoalManager:
                 self._plan = self.find_best_plan()
                 print(self._plan)
 
-            except GOAPPlannerFailedException as err:
+            except PlannerFailedException as err:
                 logger.exception("Unexpected error in finding plan")
 
         else:
