@@ -1,8 +1,37 @@
+from collections.abc import Mapping
+
+
+class DictView(Mapping):
+
+    def __init__(self, dict_):
+        self._dict = dict_
+
+    def __getitem__(self, index):
+        return self._dict[index]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+
+class State:
+
+    def on_enter(self):
+        pass
+
+    def on_exit(self):
+        pass
+
+
 class FiniteStateMachine:
 
     def __init__(self):
-        self.states = {}
         self._state = None
+
+        self._states = {}
+        self.states = DictView(self._states)
 
     @property
     def state(self):
@@ -19,7 +48,7 @@ class FiniteStateMachine:
         self._state = state
 
     def add_state(self, state, set_default=True):
-        self.states[state.name] = state
+        self._states[state.name] = state
         state.manager = self
 
         # Set default state if none set
@@ -34,4 +63,42 @@ class FiniteStateMachine:
         if self._state is state:
             self._state = None
 
-        self.states.pop(state.name)
+        self._states.pop(state.name)
+
+
+class PushDownAutomaton:
+
+    def __init__(self):
+        self._states = {}
+        self.states = DictView(self._states)
+        self._stack = []
+
+    @property
+    def state(self):
+        if self._stack:
+            return self._stack[-1]
+        return None
+
+    def push(self, state):
+        if self._stack:
+            self._stack[-1].on_exit()
+
+        self._stack.append(state)
+        state.on_enter()
+
+    def pop(self):
+        if not self._stack:
+            raise ValueError("Stack empty")
+
+        state = self._stack.pop()
+        state.on_exit()
+
+        return state
+
+    def transition_to(self, state):
+        if self._stack:
+            self.pop()
+
+        self.push(state)
+
+

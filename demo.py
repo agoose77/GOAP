@@ -1,6 +1,6 @@
+from collections.abc import MutableMapping
 from goap import Action, Goal, Director, Planner, Variable
-from fsm import FiniteStateMachine
-from state import State
+from fsm import FiniteStateMachine, State
 from time import monotonic
 from enums import EvaluationState
 
@@ -15,10 +15,6 @@ class GoToFuture:
 
     def on_completed(self):
         self.status = EvaluationState.success
-
-
-class GetAnimal(Action):
-    effects = {"has_animal": Variable("has_animal")}
 
 
 class ChaseTarget(Action):
@@ -102,7 +98,7 @@ class GetNearestAmmoPickup(Action):
 
 class KillEnemyGoal(Goal):
     """Kill enemy if target exists"""
-    state = {"target_is_dead": True, "has_animal": "dog"}
+    state = {"target_is_dead": True}
 
     def get_relevance(self, world_state):
         if world_state["target"] is not None:
@@ -118,7 +114,7 @@ class ReloadWeaponGoal(Goal):
     state = {"weapon_is_loaded": True}
 
 
-class GameObjDict:
+class GameObjDict(MutableMapping):
 
     def __init__(self, obj):
         self._obj = obj
@@ -126,49 +122,22 @@ class GameObjDict:
     def __getitem__(self, name):
         return self._obj[name]
 
+    def __delitem__(self, name):
+        del self._obj[name]
+
     def __setitem__(self, name, value):
         self._obj[name] = value
 
-    def copy(self):
-        return dict(self.items())
+    def __iter__(self):
+        return (k for k in self._obj.getPropertyNames())
 
-    def get(self, name, default=None):
-        try:
-            return self[name]
-
-        except KeyError:
-            return default
-
-    def setdefault(self, name, value):
-        try:
-            return self[name]
-
-        except KeyError:
-            self[name] = value
-            return value
-
-    def keys(self):
-        return iter(self._obj.getPropertyNames())
-
-    def update(self, other):
-        for key, value in other.items():
-            self._obj[key] = value
-
-    def values(self):
-        return (self._obj[x] for x in self.keys())
-
-    def items(self):
-        return ((x, y) for x, y in zip(self.keys(), self.values()))
-
-    def __repr__(self):
-        return repr(dict(self.items()))
+    def __len__(self):
+        return len(self._obj.getPropertyNames())
 
 
 class GOTOState(State):
 
     def __init__(self, world_state):
-        super().__init__("GOTO")
-
         self.world_state = world_state
         self.request = None
 
@@ -197,8 +166,6 @@ class GOTOState(State):
 class AnimateState(State):
 
     def __init__(self, world_state):
-        super().__init__("Animate")
-
         self.world_state = world_state
 
 
