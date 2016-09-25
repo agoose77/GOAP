@@ -49,7 +49,6 @@ class FiniteStateMachine:
 
     def add_state(self, state, set_default=True):
         self._states[state.name] = state
-        state.manager = self
 
         # Set default state if none set
         if set_default and self._state is None:
@@ -58,7 +57,6 @@ class FiniteStateMachine:
 
     def remove_state(self, state):
         state.on_exit()
-        state.manager = None
 
         if self._state is state:
             self._state = None

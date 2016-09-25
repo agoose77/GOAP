@@ -193,9 +193,12 @@ class WeaponFireManager:
             now = monotonic()
             if now - self.last_fired_time > self.shoot_time:
                 self.last_fired_time = now
-                self.world_state['target']['health'] -= 10
-                if self.world_state['target']['health'] <= 0:
-                    self.world_state['target'].endObject()
+
+                target = self.world_state['target']
+
+                target['health'] -= 10
+                if target['health'] <= 0:
+                    target.endObject()
                     self.world_state['fire_weapon'] = False
 
                 self.world_state['ammo'] -= 1
