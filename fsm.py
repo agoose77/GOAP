@@ -1,3 +1,4 @@
+from abc import ABC, abstractproperty
 from collections.abc import Mapping
 
 
@@ -16,7 +17,10 @@ class DictView(Mapping):
         return len(self._dict)
 
 
-class State:
+class State(ABC):
+    @abstractproperty
+    def name(self):
+        pass
 
     def on_enter(self):
         pass

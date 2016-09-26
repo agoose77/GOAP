@@ -136,6 +136,7 @@ class GameObjDict(MutableMapping):
 
 
 class GOTOState(State):
+    name = "GOTO"
 
     def __init__(self, world_state):
         self.world_state = world_state
@@ -164,6 +165,7 @@ class GOTOState(State):
 
 
 class AnimateState(State):
+    name = "Animate"
 
     def __init__(self, world_state):
         self.world_state = world_state
