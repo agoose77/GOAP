@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from operator import attrgetter
+from sys import float_info
 
 from priority_queue import PriorityQueue
 
@@ -9,14 +9,6 @@ __all__ = "PathNotFoundException", "AStarAlgorithm"
 
 class PathNotFoundException(Exception):
     pass
-
-
-class AStarNode:
-    g_score = 0
-    f_score = 0
-
-
-_fscore_key_func = attrgetter("f_score")
 
 
 class AStarAlgorithm(ABC):
@@ -37,17 +29,17 @@ class AStarAlgorithm(ABC):
         if start is None:
             start = goal
 
-        open_set = PriorityQueue(start, key=_fscore_key_func)
-        closed_set = set()
-
         is_complete = self.is_finished
         get_neighbours = self.get_neighbours
         get_g_score = self.get_g_score
         get_heuristic = self.get_h_score
 
-        node_to_g_score = {}
-        node_to_f_score = {}
+        node_to_g_score = {start: 0}
+        node_to_f_score = {start: 0}
         node_to_parent = {}
+
+        open_set = PriorityQueue([start], key=node_to_f_score.__getitem__)
+        closed_set = set()
 
         while open_set:
             current = open_set.pop()
@@ -58,9 +50,9 @@ class AStarAlgorithm(ABC):
             closed_set.add(current)
 
             for neighbour in get_neighbours(current):
-                tentative_g_score = current.g_score + get_g_score(current, neighbour)
+                tentative_g_score = node_to_g_score[current] + get_g_score(current, neighbour)
 
-                tentative_is_better = tentative_g_score < neighbour.g_score
+                tentative_is_better = tentative_g_score < node_to_g_score.get(neighbour, float_info.max)
                 in_open = neighbour in open_set
                 in_closed = neighbour in closed_set
 

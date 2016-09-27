@@ -1,117 +1,154 @@
 from collections.abc import MutableMapping
-from goap import Action, Goal, Director, Planner, Variable
+from goap import Action, Goal, Director, Planner
 from fsm import FiniteStateMachine, State
 from time import monotonic
 from enums import EvaluationState
 
 
-class GoToFuture:
-
-    def __init__(self, target, threshold=0.5):
-        self.target = target
-        self.status = EvaluationState.running
-        self.distance_to_target = -1.0
-        self.threshold = threshold
-
-    def on_completed(self):
-        self.status = EvaluationState.success
-
-
-class ChaseTarget(Action):
-    apply_effects_on_exit = False
-    effects = {"in_weapons_range": True}
-
-    def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
-        return world_state['target'] is not None
+class GoTo(Action):
+    effects = {'at_location': ...}
 
     def on_enter(self, world_state, goal_state):
-        target = world_state['target']
-        world_state.fsm.states['GOTO'].request = GoToFuture(target)
-
-    def get_status(self, world_state):
-        goto_state = world_state.fsm.states['GOTO']
-        distance = goto_state.request.distance_to_target
-
-        if distance < 0.0 or distance > world_state['min_weapons_range']:
-            return EvaluationState.running
-
-        # XXX Stop GOTO (hack, instead make goto do this logic (goto point))
-        goto_state.request = None
-        return EvaluationState.success
+        query = goal_state['at_location']()
+        print("Executing GOTO query: {}".format(query))
 
 
-class Attack(Action):
-    apply_effects_on_exit = False
-    effects = {"target_is_dead": True}
-    preconditions = {"weapon_is_loaded": True, "in_weapons_range": True}
+class GetAxe(Action):
+    def axe_finder():
+        return "Find me an Axe, Gimli!"
+
+    effects = {'has_axe': True}
+    preconditions = {'at_location': axe_finder}
 
     def on_enter(self, world_state, goal_state):
-        world_state['fire_weapon'] = True
-
-    def on_exit(self, world_state, goal_state):
-        world_state['fire_weapon'] = False
-        world_state['target'] = None # Not sure
-        world_state['target'] = None
-
-    def get_status(self, world_state):
-        if not world_state['weapon_is_loaded']:
-            return EvaluationState.failure
-
-        target = world_state['target']
-
-        if target is None:
-            return EvaluationState.failure
-
-        if target.invalid or target['health'] < 0:
-            return EvaluationState.success
-
-        else:
-            return EvaluationState.running
+        print("Collect ye olde AXE!")
 
 
-class ReloadWeapon(Action):
-    """Reload weapon if we have ammo"""
-    effects = {"weapon_is_loaded": True}
-    preconditions = {"has_ammo": True}
+class CutTrees(Action):
+    def trees_finder():
+        return "Find me the forest of old!"
 
-
-class GetNearestAmmoPickup(Action):
-    """GOTO nearest ammo pickup in level"""
-    effects = {"has_ammo": True}
+    effects = {"has_wood": True}
+    preconditions = {'at_location': trees_finder, 'has_axe': True}
 
     def on_enter(self, world_state, goal_state):
-        goto_state = world_state.fsm.states['GOTO']
-
-        player = world_state.player
-        nearest_pickup = min([o for o in player.scene.objects if "ammo" in o and "pickup" in o],
-                             key=player.getDistanceTo)
-        goto_state.request = GoToFuture(nearest_pickup)
-
-    def on_exit(self, world_state, goal_state):
-        goto_state = world_state.fsm.states['GOTO']
-        world_state["ammo"] += goto_state.request.target["ammo"]
-
-    def get_status(self, world_state):
-        goto_state = world_state.fsm.states['GOTO']
-        return goto_state.request.status
+        print("Cut dem treedem!")
 
 
-class KillEnemyGoal(Goal):
-    """Kill enemy if target exists"""
-    state = {"target_is_dead": True}
+class CutTreesGoal(Goal):
+    priority = 1.0
 
-    def get_relevance(self, world_state):
-        if world_state["target"] is not None:
-            return 0.7
-
-        return 0.0
+    state = {"has_wood": True}
 
 
-class ReloadWeaponGoal(Goal):
-    """Reload weapon if not loaded"""
-
-    priority = 0.45
-    state = {"weapon_is_loaded": True}
+# class GoToFuture:
+#
+#     def __init__(self, target, threshold=0.5):
+#         self.target = target
+#         self.status = EvaluationState.running
+#         self.distance_to_target = -1.0
+#         self.threshold = threshold
+#
+#     def on_completed(self):
+#         self.status = EvaluationState.success
+#
+#
+# class ChaseTarget(Action):
+#     apply_effects_on_exit = False
+#     effects = {"in_weapons_range": True}
+#
+#     def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
+#         return world_state['target'] is not None
+#
+#     def on_enter(self, world_state, goal_state):
+#         target = world_state['target']
+#         world_state.fsm.states['GOTO'].request = GoToFuture(target)
+#
+#     def get_status(self, world_state):
+#         goto_state = world_state.fsm.states['GOTO']
+#         distance = goto_state.request.distance_to_target
+#
+#         if distance < 0.0 or distance > world_state['min_weapons_range']:
+#             return EvaluationState.running
+#
+#         # XXX Stop GOTO (hack, instead make goto do this logic (goto point))
+#         goto_state.request = None
+#         return EvaluationState.success
+#
+#
+# class Attack(Action):
+#     apply_effects_on_exit = False
+#     effects = {"target_is_dead": True}
+#     preconditions = {"weapon_is_loaded": True, "in_weapons_range": True}
+#
+#     def on_enter(self, world_state, goal_state):
+#         world_state['fire_weapon'] = True
+#
+#     def on_exit(self, world_state, goal_state):
+#         world_state['fire_weapon'] = False
+#         world_state['target'] = None # Not sure
+#         world_state['target'] = None
+#
+#     def get_status(self, world_state):
+#         if not world_state['weapon_is_loaded']:
+#             return EvaluationState.failure
+#
+#         target = world_state['target']
+#
+#         if target is None:
+#             return EvaluationState.failure
+#
+#         if target.invalid or target['health'] < 0:
+#             return EvaluationState.success
+#
+#         else:
+#             return EvaluationState.running
+#
+#
+#
+# class ReloadWeapon(Action):
+#     """Reload weapon if we have ammo"""
+#     effects = {"weapon_is_loaded": True}
+#     preconditions = {"has_ammo": True}
+#
+#
+# class GetNearestAmmoPickup(Action):
+#     """GOTO nearest ammo pickup in level"""
+#     effects = {"has_ammo": True}
+#
+#     def on_enter(self, world_state, goal_state):
+#         goto_state = world_state.fsm.states['GOTO']
+#
+#         player = world_state.player
+#         nearest_pickup = min([o for o in player.scene.objects if "ammo" in o and "pickup" in o],
+#                              key=player.getDistanceTo)
+#         goto_state.request = GoToFuture(nearest_pickup)
+#
+#     def on_exit(self, world_state, goal_state):
+#         goto_state = world_state.fsm.states['GOTO']
+#         world_state["ammo"] += goto_state.request.target["ammo"]
+#
+#     def get_status(self, world_state):
+#         goto_state = world_state.fsm.states['GOTO']
+#         return goto_state.request.status
+#
+#
+# class KillEnemyGoal(Goal):
+#     """Kill enemy if target exists"""
+#     state = {"target_is_dead": True}
+#
+#     def get_relevance(self, world_state):
+#         if world_state["target"] is not None:
+#             return 0.7
+#
+#         return 0.0
+#
+#
+# class ReloadWeaponGoal(Goal):
+#     """Reload weapon if not loaded"""
+#
+#     priority = 0.45
+#     state = {"weapon_is_loaded": True}
 
 
 class GameObjDict(MutableMapping):
@@ -136,6 +173,7 @@ class GameObjDict(MutableMapping):
 
 
 class GOTOState(State):
+    name = "GOTO"
 
     def __init__(self, world_state):
         self.world_state = world_state
@@ -164,6 +202,7 @@ class GOTOState(State):
 
 
 class AnimateState(State):
+    name = "Animate"
 
     def __init__(self, world_state):
         self.world_state = world_state
@@ -271,3 +310,37 @@ def main(cont):
     sys_man.update()
     ai_manager.update()
     fsm.state.update()
+
+
+def apply_plan(plan, world_state):
+    for step in plan.plan_steps:
+        if step.action.apply_effects_on_exit:
+            step.action.apply_effects(world_state, step.goal_state)
+
+
+def visualise():
+    world_state = dict(at_location=None, has_axe=False, has_wood=False)
+
+    actions = Action.__subclasses__()
+    goals = [c() for c in Goal.__subclasses__()]
+
+    planner = Planner(actions, world_state)
+    director = Director(planner, world_state, goals)
+
+    from visualise import visualise_plan
+
+    plan = director.find_best_plan()
+    visualise_plan(plan, "plan1.png")
+    plan.update(world_state)
+    #
+    # world_state['target'] = "Some Guy"
+    # print("DONE PLAN 1" + '-'*70)
+    # plan = director.find_best_plan()
+    # visualise_plan(plan, "plan2.png")
+    # apply_plan(plan, world_state)
+
+    print(world_state)
+
+
+if __name__ == "__main__":
+    visualise()

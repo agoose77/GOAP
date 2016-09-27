@@ -1,35 +1,13 @@
 from operator import attrgetter
-from sys import float_info
-
-from enums import EvaluationState
-from astar import AStarAlgorithm, PathNotFoundException, AStarNode
-
-
 from logging import getLogger
+from enums import EvaluationState
+from astar import AStarAlgorithm, PathNotFoundException
+from utils import ListView
 
-__all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Goal", "Variable"
+__all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Goal"
 
 
 logger = getLogger(__name__)
-
-MAX_FLOAT = float_info.max
-
-
-class Variable:
-    """Variable value for effects and preconditions
-
-    Must be resolved during plan-time
-    """
-
-    def __init__(self, key):
-        self._key = key
-
-    def resolve(self, source):
-        """Determine true value of variable
-
-        :param source: variable dictionary
-        """
-        return source[self._key]
 
 
 class Goal:
@@ -70,14 +48,14 @@ class Action:
         return self.cost
 
     def apply_effects(self, world_state, goal_state):
-        """Apply action effects to state, resolving any variables
+        """Apply action effects to state, resolving any variables from goal state
 
         :param world_state: state to modify
         :param goal_state: source for variables
         """
         for key, value in self.effects.items():
-            if isinstance(value, Variable):
-                value = value.resolve(goal_state)
+            if value is Ellipsis:
+                value = goal_state[key]
 
             world_state[key] = value
 
@@ -87,17 +65,13 @@ class Action:
     def on_exit(self, world_state, goal_state):
         pass
 
-    def validate_preconditions(self, current_state, goal_state):
+    def preconditions_are_met(self, current_state):
         """Ensure that all preconditions are met in current state
 
         :param current_state: state to compare against
-        :param goal_state: state to resolve variables
         """
         for key, value in self.preconditions.items():
             current_value = current_state[key]
-
-            if isinstance(value, Variable):
-                value = value.resolve(goal_state)
 
             if current_value != value:
                 return False
@@ -105,13 +79,16 @@ class Action:
         return True
 
 
-class NodeBase(AStarNode):
+class NodeBase:
+    def __init__(self, current_state=None, goal_state=None):
+        if current_state is None:
+            current_state = {}
 
-    f_score = MAX_FLOAT
+        if goal_state is None:
+            goal_state = {}
 
-    def __init__(self):
-        self.current_state = {}
-        self.goal_state = {}
+        self.current_state = current_state
+        self.goal_state = goal_state
 
     @property
     def unsatisfied_keys(self):
@@ -124,12 +101,14 @@ class NodeBase(AStarNode):
 
         :param state: state to test
         """
-        goal_state = self.goal_state
-        for key, current_value in state.items():
-            if key not in goal_state:
-                continue
+        for key, goal_value in self.goal_state.items():
+            try:
+                current_value = state[key]
 
-            if current_value != goal_state[key]:
+            except KeyError:
+                return False
+
+            if current_value != goal_value:
                 return False
 
         return True
@@ -142,47 +121,59 @@ class GoalNode(NodeBase):
         return "<GOAPAStarGoalNode: {}>".format(self.goal_state)
 
 
+class UnsatisfiableGoalEncountered(BaseException):
+    pass
+
+
 class ActionNode(NodeBase):
     """A* Node with associated GOAP action"""
 
-    def __init__(self, action):
-        super().__init__()
+    @classmethod
+    def create_neighbour(cls, action, parent, world_state):
+        current_state = parent.current_state.copy()
+        goal_state = parent.goal_state.copy()
+        cls._update_states_from_action(action, current_state, goal_state, world_state)
+
+        return cls(action, current_state, goal_state)
+
+    def __init__(self, action, current_state=None, goal_state=None):
+        super().__init__(current_state, goal_state)
 
         self.action = action
 
     def __repr__(self):
         return "<GOAPAStarActionNode {}>".format(self.action)
 
-    def update_internal_states(self, world_state):
+    @staticmethod
+    def _update_states_from_action(action, current_state, goal_state, world_state):
         """Update internal current and goal states, according to action effects and preconditions
 
-        Required for heuristic estimate
+        This step is used to backwards track from goal state, adding requirements of this action to goal, and
+        applying effects to current state.
+        A* search terminates once current state satisfies goal state
+
+        Required for heuristic estimate.
         """
         # Get state of preconditions
-        action_preconditions = self.action.preconditions
-        goal_state = self.goal_state
+        action_preconditions = action.preconditions
 
         # 1 Update current state from effects, resolve variables
-        for key in self.action.effects:
-            try:
-                value = self.goal_state[key]
-            except KeyError:
-                continue
+        for key, value in action.effects.items():
+            if value is Ellipsis:
+                value = goal_state[key]
 
-            if isinstance(value, Variable):
-                value = value.resolve(self.goal_state)
-
-            self.current_state[key] = value
+            current_state[key] = value
 
         # 2 Update goal state from action preconditions, resolve variables
         for key, value in action_preconditions.items():
-            if isinstance(value, Variable):
-                value = value.resolve(self.goal_state)
+            # If we are overwriting an existing goal, it must be satisfied, or else this path is unsolveable!
+            if key in goal_state:
+                current_goal = goal_state[key]
+                if current_goal != current_state.get(key):
+                    raise UnsatisfiableGoalEncountered()
 
             goal_state[key] = value
-
-        # 3 Update current state with current values of missing precondition keys
-        self.current_state.update({k: world_state.get(k) for k in action_preconditions if k not in self.current_state})
+            current_state[key] = world_state[key]
 
 
 _key_action_precedence = attrgetter("action.precedence")
@@ -232,9 +223,6 @@ class Planner(AStarAlgorithm):
         :param node: node to move to (unused)
         """
         # Update world states
-        node.current_state.update(current.current_state)
-        node.goal_state.update(current.goal_state)
-
         return node.action.get_cost()
 
     def get_neighbours(self, node):
@@ -248,7 +236,6 @@ class Planner(AStarAlgorithm):
         node_action = getattr(node, "action", None)
 
         neighbours = []
-
         for effect in node.unsatisfied_keys:
             try:
                 actions = effects_to_actions[effect]
@@ -257,16 +244,21 @@ class Planner(AStarAlgorithm):
                 continue
 
             # Create new node instances for every node
-            effect_neighbours = [ActionNode(a) for a in actions  # Don't re-use action nodes, to allow multiple paths
-                                 # Ensure action can be included at this stage
-                                 if a.check_procedural_precondition(world_state, goal_state, is_planning=True) and
-                                 # Ensure we don't get recursive neighbours!
-                                 a is not node_action]
-            neighbours.extend(effect_neighbours)
+            for action in actions:
+                if action is node_action:
+                    continue
 
-        # If we reused nodes, we'd need this step separate from the initialiser ActionNode()
-        for node in neighbours:
-            node.update_internal_states(world_state)
+                if not action.check_procedural_precondition(world_state, goal_state, is_planning=True):
+                    continue
+
+                # Try and create a neighbour node, exceppt if the goal could not be satisfied
+                try:
+                    neighbour = ActionNode.create_neighbour(action, node, world_state)
+
+                except UnsatisfiableGoalEncountered:
+                    continue
+
+                neighbours.append(neighbour)
 
         neighbours.sort(key=_key_action_precedence)
         return neighbours
@@ -294,36 +286,17 @@ class Planner(AStarAlgorithm):
         return mapping
 
     def is_finished(self, node, goal, node_to_parent):
-        """Determine if the algorithm has completed
-
-        :param node: current node
-        :param goal: goal node
-        """
-        # Get world state
-        planner_state = {key: self.world_state[key] for key in node.current_state}
-        world_state = self.world_state
-
-        parent = None
-        while node is not goal:
-            action = node.action
-            parent = node_to_parent[node]
-            parent_goal_state = parent.goal_state
-
-            if not action.validate_preconditions(planner_state, parent_goal_state):
-                return False
-
-            # May be able to remove this, should already be checked?
-            if not action.check_procedural_precondition(world_state, parent_goal_state):
-                return False
-
-            # Apply effects to world state
-            action.apply_effects(planner_state, parent_goal_state)
-            node = parent
-
-        if parent is None:
+        if node.unsatisfied_keys:
             return False
 
-        return parent.satisfies_goal_state(planner_state)
+        # Avoid copying whole state dict, leverage property that keys(node) should include all keys involved in search
+        current_state = {k: self.world_state[k] for k in node.current_state}
+
+        while node is not goal:
+            node.action.apply_effects(current_state, node.goal_state)
+            node = node_to_parent[node]
+
+        return goal.satisfies_goal_state(current_state)
 
 
 class PlannerFailedException(Exception):
@@ -346,7 +319,10 @@ class ActionPlan:
 
     def __init__(self, plan_steps):
         self._plan_steps = plan_steps
+        self.plan_steps = ListView(self._plan_steps)
+
         self._plan_steps_it = iter(plan_steps)
+
         self.current_plan_step = None
 
     def __repr__(self):
@@ -401,7 +377,6 @@ class ActionPlan:
                 return EvaluationState.failure
 
             # Enter step
-            print("entering", action)
             action.on_enter(world_state, goal_state)
 
         return finished_state
