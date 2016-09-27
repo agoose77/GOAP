@@ -159,11 +159,7 @@ class ActionNode(NodeBase):
         action_preconditions = action.preconditions
 
         # 1 Update current state from effects, resolve variables
-        for key, value in action.effects.items():
-            if value is Ellipsis:
-                value = goal_state[key]
-
-            current_state[key] = value
+        action.apply_effects(current_state, goal_state)
 
         # 2 Update goal state from action preconditions, resolve variables
         for key, value in action_preconditions.items():
