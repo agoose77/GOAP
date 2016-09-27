@@ -1,9 +1,8 @@
 from operator import attrgetter
-
+from logging import getLogger
 from enums import EvaluationState
 from astar import AStarAlgorithm, PathNotFoundException
-
-from logging import getLogger
+from utils import ListView
 
 
 __all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Goal", "Variable"
@@ -296,8 +295,7 @@ class Planner(AStarAlgorithm):
         """
         # Get world state
         planner_state = {key: self.world_state[key] for key in node.current_state}
-        world_state = self.world_state
-
+        # TODO this shouldn't be required
         parent = None
         while node is not goal:
             action = node.action
@@ -305,10 +303,6 @@ class Planner(AStarAlgorithm):
             parent_goal_state = parent.goal_state
 
             if not action.validate_preconditions(planner_state, parent_goal_state):
-                return False
-
-            # May be able to remove this, should already be checked?
-            if not action.check_procedural_precondition(world_state, parent_goal_state):
                 return False
 
             # Apply effects to world state
@@ -335,13 +329,19 @@ class ActionPlanStep:
     def __repr__(self):
         return repr(self.action)
 
+    def apply_effects(self, world_state):
+        self.action.apply_effects(world_state, self.goal_state)
+
 
 class ActionPlan:
     """Manager of a series of Actions which fulfil a goal state"""
 
     def __init__(self, plan_steps):
         self._plan_steps = plan_steps
+        self.plan_steps = ListView(self._plan_steps)
+
         self._plan_steps_it = iter(plan_steps)
+
         self.current_plan_step = None
 
     def __repr__(self):

@@ -270,3 +270,38 @@ def main(cont):
     sys_man.update()
     ai_manager.update()
     fsm.state.update()
+
+
+def apply_plan(plan, world_state):
+    for step in plan.plan_steps:
+        if step.action.apply_effects_on_exit:
+            step.apply_effects(world_state)
+
+
+def visualise():
+    world_state = dict(target=None, has_ammo=False, weapon_is_loaded=False, target_is_dead=False,
+                       in_weapons_range=False)
+
+    actions = Action.__subclasses__()
+    goals = [c() for c in Goal.__subclasses__()]
+
+    planner = Planner(actions, world_state)
+    director = Director(planner, world_state, goals)
+
+    from visualise import visualise_plan
+
+    plan = director.find_best_plan()
+    visualise_plan(plan, "plan1.png")
+    apply_plan(plan, world_state)
+
+    world_state['target'] = "Some Guy"
+
+    plan = director.find_best_plan()
+    visualise_plan(plan, "plan2.png")
+    apply_plan(plan, world_state)
+
+    print(world_state)
+
+
+if __name__ == "__main__":
+    visualise()

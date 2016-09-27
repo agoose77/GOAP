@@ -1,20 +1,6 @@
 from abc import ABC, abstractproperty
-from collections.abc import Mapping
 
-
-class DictView(Mapping):
-
-    def __init__(self, dict_):
-        self._dict = dict_
-
-    def __getitem__(self, index):
-        return self._dict[index]
-
-    def __iter__(self):
-        return iter(self._dict)
-
-    def __len__(self):
-        return len(self._dict)
+from utils import DictView
 
 
 class State(ABC):
