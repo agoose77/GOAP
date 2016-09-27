@@ -1,9 +1,10 @@
 from abc import ABC, abstractproperty
 
-from utils import DictView
+from .utils import DictView
 
 
 class State(ABC):
+
     @abstractproperty
     def name(self):
         pass

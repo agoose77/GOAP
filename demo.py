@@ -1,8 +1,9 @@
 from collections.abc import MutableMapping
-from goap import Action, Goal, Director, Planner
-from fsm import FiniteStateMachine, State
 from time import monotonic
-from enums import EvaluationState
+
+from goap.planner import Action, Goal, Director, Planner
+from goap.fsm import FiniteStateMachine, State
+from goap.enums import EvaluationState
 
 
 class GoTo(Action):
@@ -321,23 +322,17 @@ def apply_plan(plan, world_state):
 def visualise():
     world_state = dict(at_location=None, has_axe=False, has_wood=False)
 
-    actions = Action.__subclasses__()
+    action_classes = Action.__subclasses__()
     goals = [c() for c in Goal.__subclasses__()]
 
-    planner = Planner(actions, world_state)
+    planner = Planner(action_classes, world_state)
     director = Director(planner, world_state, goals)
 
-    from visualise import visualise_plan
+    from goap.visualise import visualise_plan
 
     plan = director.find_best_plan()
     visualise_plan(plan, "plan1.png")
     plan.update(world_state)
-    #
-    # world_state['target'] = "Some Guy"
-    # print("DONE PLAN 1" + '-'*70)
-    # plan = director.find_best_plan()
-    # visualise_plan(plan, "plan2.png")
-    # apply_plan(plan, world_state)
 
     print(world_state)
 
