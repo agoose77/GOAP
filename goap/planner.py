@@ -163,10 +163,13 @@ class ActionNode(NodeBase):
 
         # 2 Update goal state from action preconditions, resolve variables
         for key, value in action_preconditions.items():
-            # If we are overwriting an existing goal, it must be satisfied, or else this path is unsolveable!
+            # If we are overwriting an existing goal, it must already be satisfied (goal[k]=current[k]),
+            # or else this path is unsolveable!
             if key in goal_state:
-                current_goal = goal_state[key]
-                if current_goal != current_state.get(key):
+                goal_value = goal_state[key]
+                current_value = current_state[key]
+
+                if current_value != goal_value:
                     raise UnsatisfiableGoalEncountered()
 
             goal_state[key] = value
