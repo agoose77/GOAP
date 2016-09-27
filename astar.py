@@ -38,7 +38,7 @@ class AStarAlgorithm(ABC):
         node_to_f_score = {start: 0}
         node_to_parent = {}
 
-        open_set = PriorityQueue(start, key=node_to_f_score.__getitem__)
+        open_set = PriorityQueue([start], key=node_to_f_score.__getitem__)
         closed_set = set()
 
         while open_set:

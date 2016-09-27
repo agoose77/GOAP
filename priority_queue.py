@@ -13,8 +13,7 @@ class PriorityElement:
 
 
 class PriorityQueue:
-
-    def __init__(self, *items, key=None):
+    def __init__(self, items=None, key=None):
         self._dict = {}
         self._heap = []
 
@@ -23,8 +22,9 @@ class PriorityQueue:
 
         self._key = key
 
-        for item in items:
-            self.add(item)
+        if items:
+            for item in items:
+                self.add(item)
 
     def __bool__(self):
         return bool(self._dict)
