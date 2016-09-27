@@ -49,7 +49,7 @@ def apply_plan(plan, world_state):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run demo GOAP program")
-    parser.add_argument("-graph", type=str, nargs=1)
+    parser.add_argument("-graph", type=str)
     args = parser.parse_args()
 
     world_state = dict(at_location=None, has_axe=False, has_wood=False)
