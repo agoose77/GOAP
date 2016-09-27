@@ -248,7 +248,7 @@ class Planner(AStarAlgorithm):
                 if not action.check_procedural_precondition(world_state, goal_state, is_planning=True):
                     continue
 
-                # Try and create a neighbour node, exceppt if the goal could not be satisfied
+                # Try and create a neighbour node, except if the goal could not be satisfied
                 try:
                     neighbour = ActionNode.create_neighbour(action, node, world_state)
 
