@@ -11,6 +11,17 @@ __all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Go
 logger = getLogger(__name__)
 
 
+class Forwarder:
+    """Container class to allow a service-API for plugins"""
+
+    def __init__(self, name):
+        self.forward_effect_name = name
+
+
+def expose(name):
+    return Forwarder(name)
+
+
 class Goal:
 
     state = {}
@@ -27,7 +38,27 @@ class Goal:
         return True
 
 
-class Action:
+class ActionMeta(type):
+
+    def __new__(metacls, name, bases, attrs):
+        if bases:
+            # Overwrite effect plugins to ellipsis
+            all_effects = attrs.get("effects", {})
+
+            # Validate precondition plugins
+            if "preconditions" in attrs:
+                for name, value in attrs['preconditions'].items():
+                    if value is Ellipsis:
+                        raise ValueError("Invalid value for precondition '{}'".format(name))
+
+                    elif hasattr(value, 'forward_effect_name'):
+                        if value.forward_effect_name not in all_effects:
+                            raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
+
+        return super().__new__(metacls, name, bases, attrs)
+
+
+class Action(metaclass=ActionMeta):
     cost = 1
     precedence = 0
 
@@ -65,19 +96,6 @@ class Action:
 
     def on_exit(self, world_state, goal_state):
         pass
-
-    def preconditions_are_met(self, current_state):
-        """Ensure that all preconditions are met in current state
-
-        :param current_state: state to compare against
-        """
-        for key, value in self.preconditions.items():
-            current_value = current_state[key]
-
-            if current_value != value:
-                return False
-
-        return True
 
 
 class NodeBase:
@@ -133,6 +151,7 @@ class ActionNode(NodeBase):
     def create_neighbour(cls, action, parent, world_state):
         current_state = parent.current_state.copy()
         goal_state = parent.goal_state.copy()
+
         cls._update_states_from_action(action, current_state, goal_state, world_state)
 
         return cls(action, current_state, goal_state)
@@ -172,8 +191,14 @@ class ActionNode(NodeBase):
                 if current_value != goal_value:
                     raise UnsatisfiableGoalEncountered()
 
+            # Preconditions can expose effect plugins to a dependency
+            if hasattr(value, "forward_effect_name"):
+                value = current_state[value.forward_effect_name]
+
             goal_state[key] = value
-            current_state[key] = world_state[key]
+
+            if key not in current_state:
+                current_state[key] = world_state[key]
 
 
 _key_action_precedence = attrgetter("action.precedence")
