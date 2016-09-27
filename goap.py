@@ -1,22 +1,15 @@
 from operator import attrgetter
-from sys import float_info
 
 from enums import EvaluationState
 from astar import AStarAlgorithm, PathNotFoundException
 
-
-class AStarNode:
-    pass
-
-
 from logging import getLogger
+
 
 __all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Goal", "Variable"
 
 
 logger = getLogger(__name__)
-
-MAX_FLOAT = float_info.max
 
 
 class Variable:
@@ -109,7 +102,7 @@ class Action:
         return True
 
 
-class NodeBase(AStarNode):
+class NodeBase:
 
     def __init__(self):
         self.current_state = {}

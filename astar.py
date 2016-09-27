@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from operator import attrgetter
 from sys import float_info
 
 from priority_queue import PriorityQueue
