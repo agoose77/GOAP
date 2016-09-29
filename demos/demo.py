@@ -2,10 +2,10 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 
 from argparse import ArgumentParser
-from goap.planner import Action, Goal, Director, Planner
+from goap.planner import ActionBase, GoalBase, Director, Planner
 
 
-class GoTo(Action):
+class GoTo(ActionBase):
     effects = {'at_location': ...}
 
     def on_enter(self, world_state, goal_state):
@@ -13,7 +13,7 @@ class GoTo(Action):
         print("Executing GOTO query: {}".format(query))
 
 
-class GetAxe(Action):
+class GetAxe(ActionBase):
     def axe_finder():
         return "Find me an Axe, Gimli!"
 
@@ -24,7 +24,7 @@ class GetAxe(Action):
         print("Collect ye olde AXE!")
 
 
-class CutTrees(Action):
+class CutTrees(ActionBase):
     def trees_finder():
         return "Find me the forest of old!"
 
@@ -35,7 +35,7 @@ class CutTrees(Action):
         print("Cut dem treedem!")
 
 
-class CutTreesGoal(Goal):
+class CutTreesGoal(GoalBase):
     priority = 1.0
 
     state = {"has_wood": True}
@@ -54,10 +54,10 @@ if __name__ == "__main__":
 
     world_state = dict(at_location=None, has_axe=False, has_wood=False)
 
-    action_classes = Action.__subclasses__()
-    goals = [c() for c in Goal.__subclasses__()]
+    actions = [a() for a in ActionBase.__subclasses__()]
+    goals = [c() for c in GoalBase.__subclasses__()]
 
-    planner = Planner(action_classes, world_state)
+    planner = Planner(actions, world_state)
     director = Director(planner, world_state, goals)
 
     plan = director.find_best_plan()

@@ -4,7 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 from collections.abc import MutableMapping
 from time import monotonic
 
-from goap.planner import Action, Goal, Director, Planner
+from goap.planner import ActionBase, GoalBase, Director, Planner
 from goap.fsm import FiniteStateMachine, State
 from goap.enums import EvaluationState
 
@@ -21,7 +21,7 @@ class GoToFuture:
         self.status = EvaluationState.success
 
 
-class ChaseTarget(Action):
+class ChaseTarget(ActionBase):
     apply_effects_on_exit = False
     effects = {"in_weapons_range": True}
 
@@ -30,10 +30,10 @@ class ChaseTarget(Action):
 
     def on_enter(self, world_state, goal_state):
         target = world_state['target']
-        world_state.fsm.states['GOTO'].request = GoToFuture(target)
+        world_state['fsm'].states['GOTO'].request = GoToFuture(target)
 
-    def get_status(self, world_state):
-        goto_state = world_state.fsm.states['GOTO']
+    def get_status(self, world_state, goal_state):
+        goto_state = world_state['fsm'].states['GOTO']
         distance = goto_state.request.distance_to_target
 
         if distance < 0.0 or distance > world_state['min_weapons_range']:
@@ -44,7 +44,7 @@ class ChaseTarget(Action):
         return EvaluationState.success
 
 
-class Attack(Action):
+class Attack(ActionBase):
     apply_effects_on_exit = False
     effects = {"target_is_dead": True}
     preconditions = {"weapon_is_loaded": True, "in_weapons_range": True}
@@ -57,7 +57,7 @@ class Attack(Action):
         world_state['target'] = None # Not sure
         world_state['target'] = None
 
-    def get_status(self, world_state):
+    def get_status(self, world_state, goal_state):
         if not world_state['weapon_is_loaded']:
             return EvaluationState.failure
 
@@ -73,35 +73,34 @@ class Attack(Action):
             return EvaluationState.running
 
 
-
-class ReloadWeapon(Action):
+class ReloadWeapon(ActionBase):
     """Reload weapon if we have ammo"""
     effects = {"weapon_is_loaded": True}
     preconditions = {"has_ammo": True}
 
 
-class GetNearestAmmoPickup(Action):
+class GetNearestAmmoPickup(ActionBase):
     """GOTO nearest ammo pickup in level"""
     effects = {"has_ammo": True}
 
     def on_enter(self, world_state, goal_state):
-        goto_state = world_state.fsm.states['GOTO']
+        goto_state = world_state['fsm'].states['GOTO']
 
-        player = world_state.player
+        player = world_state['player']
         nearest_pickup = min([o for o in player.scene.objects if "ammo" in o and "pickup" in o],
                              key=player.getDistanceTo)
         goto_state.request = GoToFuture(nearest_pickup)
 
     def on_exit(self, world_state, goal_state):
-        goto_state = world_state.fsm.states['GOTO']
+        goto_state = world_state['fsm'].states['GOTO']
         world_state["ammo"] += goto_state.request.target["ammo"]
 
-    def get_status(self, world_state):
-        goto_state = world_state.fsm.states['GOTO']
+    def get_status(self, world_state, goal_state):
+        goto_state = world_state['fsm'].states['GOTO']
         return goto_state.request.status
 
 
-class KillEnemyGoal(Goal):
+class KillEnemyGoal(GoalBase):
     """Kill enemy if target exists"""
     state = {"target_is_dead": True}
 
@@ -112,7 +111,7 @@ class KillEnemyGoal(Goal):
         return 0.0
 
 
-class ReloadWeaponGoal(Goal):
+class ReloadWeaponGoal(GoalBase):
     """Reload weapon if not loaded"""
 
     priority = 0.45
@@ -120,6 +119,7 @@ class ReloadWeaponGoal(Goal):
 
 
 class GameObjDict(MutableMapping):
+    """Interface to KX_GameObject's properties as a true dictionary"""
 
     def __init__(self, obj):
         self._obj = obj
@@ -155,7 +155,7 @@ class GOTOState(State):
         if request.status != EvaluationState.running:
             return
 
-        player = self.world_state.player
+        player = self.world_state['player']
         to_target = request.target.worldPosition - player.worldPosition
 
         # Update request
@@ -196,31 +196,33 @@ class WeaponFireManager:
         self.last_fired_time = 0
 
     def update(self):
-        if self.world_state['fire_weapon']:
-            now = monotonic()
-            if now - self.last_fired_time > self.shoot_time:
-                self.last_fired_time = now
+        if not self.world_state['fire_weapon']:
+            return
 
-                target = self.world_state['target']
+        now = monotonic()
+        if now - self.last_fired_time > self.shoot_time:
+            self.last_fired_time = now
 
-                target['health'] -= 10
-                if target['health'] <= 0:
-                    target.endObject()
-                    self.world_state['fire_weapon'] = False
+            target = self.world_state['target']
 
-                self.world_state['ammo'] -= 1
+            target['health'] -= 10
+            if target['health'] <= 0:
+                target.endObject()
+                self.world_state['fire_weapon'] = False
 
-                if not self.world_state['ammo']:
-                    self.world_state['has_ammo'] = False
-                    self.world_state['fire_weapon'] = False
-                    self.world_state['weapon_is_loaded'] = False
+            self.world_state['ammo'] -= 1
+
+            if not self.world_state['ammo']:
+                self.world_state['has_ammo'] = False
+                self.world_state['fire_weapon'] = False
+                self.world_state['weapon_is_loaded'] = False
 
 
 class TargetManager:
 
     def __init__(self, world_state):
         self.world_state = world_state
-        self.player = world_state.player
+        self.player = world_state['player']
 
         world_state['target'] = None
 
@@ -250,15 +252,15 @@ def init(cont):
     fsm.add_state(goto_state)
     fsm.add_state(animate_state)
 
-    world_state.player = own
-    world_state.fsm = fsm
+    world_state['player'] = own
+    world_state['fsm'] = fsm
 
     sys_man = SystemManager()
     sys_man.systems.append(TargetManager(world_state))
     sys_man.systems.append(WeaponFireManager(world_state))
 
-    actions = Action.__subclasses__()
-    goals = [c() for c in Goal.__subclasses__()]
+    actions = [a() for a in ActionBase.__subclasses__()]
+    goals = [c() for c in GoalBase.__subclasses__()]
 
     planner = Planner(actions, world_state)
     director = Director(planner, world_state, goals)
