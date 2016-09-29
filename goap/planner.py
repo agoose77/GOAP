@@ -5,7 +5,7 @@ from .enums import EvaluationState
 from .astar import AStarAlgorithm, PathNotFoundException
 from .utils import ListView
 
-__all__ = "Goal", "Action", "Planner", "Director", "ActionNode", "GoalNode", "Goal"
+__all__ = "GoalBase", "ActionBase", "Planner", "Director", "ActionNode", "GoalNode", "GoalBase"
 
 
 logger = getLogger(__name__)
@@ -22,7 +22,7 @@ def expose(name):
     return Forwarder(name)
 
 
-class Goal:
+class GoalBase:
 
     state = {}
     priority = 0
@@ -40,7 +40,7 @@ class Goal:
 
 class ActionMeta(type):
 
-    def __new__(metacls, name, bases, attrs):
+    def __new__(metacls, cls_name, bases, attrs):
         if bases:
             # Overwrite effect plugins to ellipsis
             all_effects = attrs.get("effects", {})
@@ -55,10 +55,10 @@ class ActionMeta(type):
                         if value.forward_effect_name not in all_effects:
                             raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
 
-        return super().__new__(metacls, name, bases, attrs)
+        return super().__new__(metacls, cls_name, bases, attrs)
 
 
-class Action(metaclass=ActionMeta):
+class ActionBase(metaclass=ActionMeta):
     cost = 1
     precedence = 0
 
@@ -73,10 +73,10 @@ class Action(metaclass=ActionMeta):
     def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
         return True
 
-    def get_status(self, world_state):
+    def get_status(self, world_state, goal_state):
         return EvaluationState.success
 
-    def get_cost(self):
+    def get_cost(self, world_state, goal_state):
         return self.cost
 
     def apply_effects(self, world_state, goal_state):
@@ -99,6 +99,7 @@ class Action(metaclass=ActionMeta):
 
 
 class NodeBase:
+
     def __init__(self, current_state=None, goal_state=None):
         if current_state is None:
             current_state = {}
@@ -206,11 +207,11 @@ _key_action_precedence = attrgetter("action.precedence")
 
 class Planner(AStarAlgorithm):
 
-    def __init__(self, action_classes, world_state):
-        self.action_classes = action_classes
+    def __init__(self, actions, world_state):
+        self.actions = actions
         self.world_state = world_state
 
-        self.effects_to_actions = self.get_actions_by_effects(action_classes)
+        self.effects_to_actions = self.create_effect_table(actions)
 
     def find_plan_for_goal(self, goal_state):
         """Find shortest plan to produce goal state
@@ -248,7 +249,7 @@ class Planner(AStarAlgorithm):
         :param node: node to move to (unused)
         """
         # Update world states
-        return node.action.get_cost()
+        return node.action.get_cost(self.world_state, node.goal_state)
 
     def get_neighbours(self, node):
         """Return new nodes for given node which satisfy missing state
@@ -289,16 +290,14 @@ class Planner(AStarAlgorithm):
         return neighbours
 
     @staticmethod
-    def get_actions_by_effects(action_classes):
+    def create_effect_table(actions):
         """Associate effects with appropriate actions
 
-        :param action_classes: valid action classes
+        :param actions: valid action instances
         """
         mapping = {}
 
-        for cls in action_classes:
-            action = cls()
-
+        for action in actions:
             for effect in action.effects:
                 try:
                     effect_classes = mapping[effect]
@@ -355,6 +354,19 @@ class ActionPlan:
             return ("{!r}*" if step is self.current_plan_step else "{!r}").format(step)
         return "GOAPAIPlan :: {{{}}}".format(" -> ".join([repr_step(s) for s in self._plan_steps]))
 
+    def cancel(self, world_state):
+        try:
+            # Cancel running step
+            current_step = self.current_plan_step
+            if current_step:
+                current_step.action.on_exit(world_state, current_step.goal_state)
+                self.current_plan_step = None
+
+        finally:
+            # Consume steps iterator
+            for _ in self._plan_steps_it:
+                pass
+
     def update(self, world_state):
         """Update the plan, ensuring it is valid
 
@@ -366,26 +378,28 @@ class ActionPlan:
         current_step = self.current_plan_step
 
         while True:
-            # Before initialisation
+            # If existing step is being processed
             if current_step is not None:
                 action = current_step.action
                 goal_state = current_step.goal_state
 
-                plan_state = action.get_status(world_state)
+                # Check its state
+                action_state = action.get_status(world_state, goal_state)
 
                 # If the plan isn't finished, return its state (failure / running)
-                if plan_state == running_state:
+                if action_state == running_state:
                     return running_state
 
                 # Leave previous step
                 action.on_exit(world_state, goal_state)
 
+                # Apply effects
                 if action.apply_effects_on_exit:
                     action.apply_effects(world_state, goal_state)
 
-                # Return if not finished
-                if plan_state != finished_state:
-                    return plan_state
+                # Return if not finished (e.g if error occurred)
+                if action_state != finished_state:
+                    return action_state
 
             # Get next step
             try:

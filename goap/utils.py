@@ -11,6 +11,9 @@ class ListView(Sized):
     def __len__(self):
         return len(self._list)
 
+    def __repr__(self):
+        return repr(self._list)
+
 
 class DictView(Mapping):
     def __init__(self, dict_):
@@ -24,3 +27,6 @@ class DictView(Mapping):
 
     def __len__(self):
         return len(self._dict)
+
+    def __repr__(self):
+        return repr(self._dict)
