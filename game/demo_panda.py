@@ -8,9 +8,9 @@ from math import cos, sin, pi
 
 from goap.planner import ActionBase, GoalBase, Director, Planner
 from goap.fsm import FiniteStateMachine, State
+from goap.sensors import SensorManager
 from goap.enums import EvaluationState
 from goap.memory import Record, RecordMemory
-
 from direct.showbase.ShowBase import ShowBase
 
 
@@ -145,18 +145,18 @@ class Blackboard:
         self.invalidate_path = False
 
 
-class AI:
+class AIBase:
     """Main AI agent"""
 
     goal_set = []
     action_set = []
 
     def __init__(self):
+        self.world_state = self.create_world_state()
+
         self.blackboard = Blackboard()
         self.working_memory = RecordMemory()
-        self.sensor_manager = SensorManager()
-
-        self.world_state = {}
+        self.sensor_manager = SensorManager(self)
 
         actions = self.load_action_set()
         self.planner = Planner(actions, self.world_state)
@@ -164,26 +164,33 @@ class AI:
         goals = self.load_goal_set()
         self.director = Director(self.planner, self.world_state, goals)
 
+    def create_world_state(self):
+        return {}
+
     def load_action_set(self):
         return [cls(self) for cls in self.action_set]
 
     def load_goal_set(self):
-        return [cls(self) for cls in self.goal_set]
-
-
-class SensorManager:
-    """Updates sensors and uses them to update world state using working memory & blackboard"""
-
-    def __init__(self, working_memory, blackboard, world_state):
-        self._sensors = []
-
-        self.blackboard = blackboard
-        self.working_memory = working_memory
-        self.world_state = world_state
+        return [cls() for cls in self.goal_set]
 
     def update(self):
-        pass
-    
+        self.director.update()
+
+
+class AggressorAI(AIBase):
+
+    action_set = list(DemoAction.__subclasses__())
+    goal_set = list(GoalBase.__subclasses__())
+
+    def create_world_state(self):
+        return {''}
+
+
+class DefenderAI(AIBase):
+
+    action_set = list(DemoAction.__subclasses__())
+    goal_set = list(GoalBase.__subclasses__())
+
 
 class NavigationSystem:
 
@@ -276,25 +283,13 @@ class Application(ShowBase):
         super().__init__()
 
         # Planner data
-        self.world_state = self.create_world_state()
-        self.blackboard = Blackboard()
-        self.working_memory = RecordMemory()
+        # self.world_state = self.create_world_state()
+        # self.world = self.load_world()
+        #
+        # self.world_state['player'] = self.world['player']
+        # self.world_state['fsm'] = self.fsm
 
-        self.fsm = FiniteStateMachine()
-        self.world = self.load_world()
-
-        self.world_state['player'] = self.world['player']
-        self.world_state['fsm'] = self.fsm
-
-        self.target_selector = TargetSelector(self.blackboard, self.world_state)
-        self.weapons_manager = WeaponManager(self.blackboard)
-        self.navigation_manager = NavigationSystem(self.blackboard)
-
-        actions = [a(self) for a in DemoAction.__subclasses__()]
-        goals = [c() for c in GoalBase.__subclasses__()]
-
-        self.planner = Planner(actions, self.world_state)
-        self.director = Director(self.planner, self.world_state, goals)
+        self.ai = AggressorAI()
 
     def create_world_state(self):
         return {'in_weapons_range': False, 'target_in_range': False, 'has_ammo': False,
@@ -336,9 +331,7 @@ class Application(ShowBase):
         return state
 
     def update(self, task):
-        self.sys_man.update()
-        self.director.update()
-        self.fsm.state.update()
+        self.ai.update()
         return task.cont
 
 

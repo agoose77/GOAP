@@ -37,49 +37,7 @@ def _generate_record_class(*field_names):
     return type("Record", (), cls_dict)
 
 
-Record = _generate_record_class("type", "subject", "target", "data")
-
-
-# class Record:
-#
-#     type_getter = attrgetter("_type")
-#     subject_getter = attrgetter("_subject")
-#     target_getter = attrgetter("_target")
-#     data_getter = attrgetter("_data")
-#
-#     _getter_to_name = {type_getter: 'type', subject_getter: 'subject', target_getter: 'target', data_getter: 'data'}
-#
-#     def __init__(self, type_=EmptyValue, subject=EmptyValue, target=EmptyValue, data=EmptyValue):
-#         self._type = type_
-#         self._subject = subject
-#         self._target = target
-#         self._data = data
-#
-#         self.field_getters = []
-#
-#         if type_ is not EmptyValue:
-#             self.field_getters.append(self.type_getter)
-#         if subject is not EmptyValue:
-#             self.field_getters.append(self.subject_getter)
-#         if target is not EmptyValue:
-#             self.field_getters.append(self.target_getter)
-#         if data is not EmptyValue:
-#             self.field_getters.append(self.data_getter)
-#     @property
-#     def type(self):
-#         return self._type
-#
-#     @property
-#     def subject(self):
-#         return self._subject
-#
-#     @property
-#     def target(self):
-#         return self._target
-#
-#     @property
-#     def data(self):
-#         return self._data
+Record = _generate_record_class("type", "subject", "target", "confidence", "data", "update_time")
 
 
 class RecordMemory:

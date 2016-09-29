@@ -12,10 +12,12 @@ class SensorBase(ABC):
 
 
 class SensorManager:
+    """Updates sensors and uses them to update world state using working memory & blackboard"""
 
     def __init__(self, ai):
-        self.ai = ai
         self._sensors = []
 
+        self.ai = ai
+
     def update(self):
-        pass # TODO
+        pass
