@@ -3,7 +3,6 @@ from sys import float_info
 
 from .priority_queue import PriorityQueue
 
-
 __all__ = "PathNotFoundException", "AStarAlgorithm"
 
 
@@ -12,7 +11,6 @@ class PathNotFoundException(Exception):
 
 
 class AStarAlgorithm(ABC):
-
     @abstractmethod
     def get_neighbours(self, node):
         raise NotImplementedError
@@ -89,4 +87,3 @@ class AStarAlgorithm(ABC):
 
         result.reverse()
         return result
-

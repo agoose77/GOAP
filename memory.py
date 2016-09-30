@@ -1,6 +1,6 @@
-from operator import attrgetter
 from collections import OrderedDict
 from inspect import Signature, Parameter
+from operator import attrgetter
 
 
 class EmptyValue:
@@ -41,7 +41,6 @@ Record = _generate_record_class("type", "subject", "target", "confidence", "data
 
 
 class RecordMemory:
-
     def __init__(self):
         self._records = []
 
@@ -66,6 +65,7 @@ if __name__ == "__main__":
     memory = RecordMemory()
 
     from collections import namedtuple
+
     obj_cls = namedtuple("SomeObj", "name")
     some_obj = obj_cls("Obj")
     some_other_obj = obj_cls("OtherObj")

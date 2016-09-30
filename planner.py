@@ -1,12 +1,11 @@
-from operator import attrgetter
 from logging import getLogger
+from operator import attrgetter
 
-from .enums import EvaluationState
 from .astar import AStarAlgorithm, PathNotFoundException
+from .enums import EvaluationState
 from .utils import ListView
 
 __all__ = "GoalBase", "ActionBase", "Planner", "Director", "ActionNode", "GoalNode", "GoalBase"
-
 
 logger = getLogger(__name__)
 
@@ -23,7 +22,6 @@ def expose(name):
 
 
 class GoalBase:
-
     state = {}
     priority = 0
 
@@ -39,7 +37,6 @@ class GoalBase:
 
 
 class ActionMeta(type):
-
     def __new__(metacls, cls_name, bases, attrs):
         if bases:
             # Overwrite effect plugins to ellipsis
@@ -99,7 +96,6 @@ class ActionBase(metaclass=ActionMeta):
 
 
 class NodeBase:
-
     def __init__(self, current_state=None, goal_state=None):
         if current_state is None:
             current_state = {}
@@ -206,7 +202,6 @@ _key_action_precedence = attrgetter("action.precedence")
 
 
 class Planner(AStarAlgorithm):
-
     def __init__(self, actions, world_state):
         self.actions = actions
         self.world_state = world_state
@@ -352,6 +347,7 @@ class ActionPlan:
     def __repr__(self):
         def repr_step(step):
             return ("{!r}*" if step is self.current_plan_step else "{!r}").format(step)
+
         return "GOAPAIPlan :: {{{}}}".format(" -> ".join([repr_step(s) for s in self._plan_steps]))
 
     def cancel(self, world_state):
@@ -492,6 +488,3 @@ class Director:
 
             self._plan = None
             self.update()
-
-
-
