@@ -3,7 +3,6 @@ from sys import float_info
 
 from .priority_queue import PriorityQueue
 
-
 __all__ = "PathNotFoundException", "AStarAlgorithm"
 
 

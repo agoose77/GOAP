@@ -1,6 +1,6 @@
-from operator import attrgetter
 from collections import OrderedDict
 from inspect import Signature, Parameter
+from operator import attrgetter
 
 
 class EmptyValue:

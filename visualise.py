@@ -1,5 +1,5 @@
-from networkx import Graph, draw_networkx
 from matplotlib import pyplot as plt
+from networkx import Graph, draw_networkx
 
 
 def repr_action(action, i):
