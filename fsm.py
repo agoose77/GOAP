@@ -20,7 +20,6 @@ class FiniteStateMachine:
 
     def __init__(self):
         self._state = None
-
         self._states = {}
         self.states = DictView(self._states)
 
@@ -42,15 +41,12 @@ class FiniteStateMachine:
         self._states[state.name] = state
 
         # Set default state if none set
-        if set_default and self._state is None:
-            self._state = state
-            state.on_enter()
+        if set_default and self.state is None:
+            self.state = state
 
     def remove_state(self, state):
-        state.on_exit()
-
-        if self._state is state:
-            self._state = None
+        if self.state is state:
+            self.state = None
 
         self._states.pop(state.name)
 
@@ -59,8 +55,8 @@ class PushDownAutomaton:
 
     def __init__(self):
         self._states = {}
-        self.states = DictView(self._states)
         self._stack = []
+        self.states = DictView(self._states)
 
     @property
     def state(self):

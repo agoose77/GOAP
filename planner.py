@@ -148,6 +148,14 @@ class UnsatisfiableGoalEncountered(BaseException):
 class ActionNode(NodeBase):
     """A* Node with associated GOAP action"""
 
+    def __init__(self, action, current_state=None, goal_state=None):
+        super().__init__(current_state, goal_state)
+
+        self.action = action
+
+    def __repr__(self):
+        return "<GOAPAStarActionNode {}>".format(self.action)
+
     @classmethod
     def create_neighbour(cls, action, parent, world_state):
         current_state = parent.current_state.copy()
@@ -156,14 +164,6 @@ class ActionNode(NodeBase):
         cls._update_states_from_action(action, current_state, goal_state, world_state)
 
         return cls(action, current_state, goal_state)
-
-    def __init__(self, action, current_state=None, goal_state=None):
-        super().__init__(current_state, goal_state)
-
-        self.action = action
-
-    def __repr__(self):
-        return "<GOAPAStarActionNode {}>".format(self.action)
 
     @staticmethod
     def _update_states_from_action(action, current_state, goal_state, world_state):
@@ -427,7 +427,6 @@ class Director:
     def __init__(self, planner, world_state, goals):
         self.world_state = world_state
         self.planner = planner
-
         self.goals = goals
 
         self._plan = None

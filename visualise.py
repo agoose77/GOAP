@@ -6,6 +6,13 @@ def repr_action(action, i):
     return "{!r}_{}".format(action, i)
 
 
+def look_ahead(iterable):
+    sequence = list(iterable)
+    shifted_sequence = iter(sequence)
+    next(shifted_sequence)
+    yield zip(sequence, shifted_sequence)
+
+
 def visualise_plan(plan, filename):
     graph = Graph()
 
@@ -14,14 +21,9 @@ def visualise_plan(plan, filename):
         graph.add_node(name)
 
     if len(plan.plan_steps) > 1:
-        it = iter(plan.plan_steps)
-        next(it)
-
-        i = 0
-        for step, next_step in zip(plan.plan_steps, it):
+        for i, (step, next_step) in enumerate(look_ahead(plan.plan_steps)):
             name = repr_action(step, i)
             next_name = repr_action(next_step, i + 1)
-            i += 1
             graph.add_edge(name, next_name)
 
     plt.axis('off')

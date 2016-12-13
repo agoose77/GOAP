@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import deque
 from sys import float_info
 
 from .priority_queue import PriorityQueue
@@ -49,24 +50,20 @@ class AStarAlgorithm(ABC):
             closed_set.add(current)
 
             for neighbour in get_neighbours(current):
+                if neighbour in closed_set:
+                    continue
+
                 tentative_g_score = node_to_g_score[current] + get_g_score(current, neighbour)
-
                 tentative_is_better = tentative_g_score < node_to_g_score.get(neighbour, float_info.max)
-                in_open = neighbour in open_set
-                in_closed = neighbour in closed_set
 
-                if in_open and tentative_is_better:
-                    open_set.remove(neighbour)
+                if neighbour in open_set and not tentative_is_better:
+                    continue
 
-                if in_closed and tentative_is_better:
-                    closed_set.remove(neighbour)
+                node_to_parent[neighbour] = current
+                node_to_g_score[neighbour] = tentative_g_score
+                node_to_f_score[neighbour] = tentative_g_score + get_heuristic(neighbour, goal)
 
-                if not in_open and not in_closed:
-                    node_to_parent[neighbour] = current
-                    node_to_g_score[neighbour] = tentative_g_score
-                    node_to_f_score[neighbour] = tentative_g_score + get_heuristic(neighbour, goal)
-
-                    open_set.add(neighbour)
+                open_set.add(neighbour)
 
         raise PathNotFoundException("Couldn't find path for given nodes")
 
@@ -76,16 +73,15 @@ class AStarAlgorithm(ABC):
 
     @staticmethod
     def reconstruct_path(node, goal, node_to_parent):
-        result = [node]
+        result = deque((node,))
 
         try:
             while True:
                 node = node_to_parent[node]
-                result.append(node)
+                result.appendleft(node)
 
         except KeyError:
             pass
 
-        result.reverse()
         return result
 
