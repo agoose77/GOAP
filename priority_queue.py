@@ -12,13 +12,17 @@ class PriorityElement:
         return self.score < other.score
 
 
+def _pass_through_key(x):
+    return x
+
+
 class PriorityQueue:
     def __init__(self, items=None, key=None):
         self._dict = {}
         self._heap = []
 
         if key is None:
-            key = lambda x: x
+            key = _pass_through_key
 
         self._key = key
 

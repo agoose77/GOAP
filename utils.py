@@ -2,6 +2,7 @@ from collections.abc import Sized, Mapping
 
 
 class ListView(Sized):
+
     def __init__(self, list_):
         self._list = list_
 
@@ -16,6 +17,7 @@ class ListView(Sized):
 
 
 class DictView(Mapping):
+
     def __init__(self, dict_):
         self._dict = dict_
 

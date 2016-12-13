@@ -70,15 +70,6 @@ class ActionBase(metaclass=ActionMeta):
     def __repr__(self):
         return self.__class__.__name__
 
-    def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
-        return True
-
-    def get_status(self, world_state, goal_state):
-        return EvaluationState.success
-
-    def get_cost(self, world_state, goal_state):
-        return self.cost
-
     def apply_effects(self, world_state, goal_state):
         """Apply action effects to state, resolving any variables from goal state
 
@@ -90,6 +81,15 @@ class ActionBase(metaclass=ActionMeta):
                 value = goal_state[key]
 
             world_state[key] = value
+
+    def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
+        return True
+
+    def get_status(self, world_state, goal_state):
+        return EvaluationState.success
+
+    def get_cost(self, world_state, goal_state):
+        return self.cost
 
     def on_enter(self, world_state, goal_state):
         pass
@@ -343,10 +343,8 @@ class ActionPlan:
 
     def __init__(self, plan_steps):
         self._plan_steps = plan_steps
-        self.plan_steps = ListView(self._plan_steps)
-
         self._plan_steps_it = iter(plan_steps)
-
+        self.plan_steps = ListView(self._plan_steps)
         self.current_plan_step = None
 
     def __repr__(self):
@@ -456,7 +454,6 @@ class Director:
         # Try all goals to see if we can satisfy them
         for goal in self.sorted_goals:
             # Check the goal isn't satisfied already
-
             if goal.is_satisfied(self.world_state):
                 continue
 
