@@ -1,29 +1,16 @@
 from logging import getLogger
 from operator import attrgetter
 
-from .astar import AStarAlgorithm, PathNotFoundException
-from .enums import EvaluationState
+from .action import EvaluationState
+from .astar import AStarAlgorithm
 from .utils import ListView
 
-__all__ = "GoalBase", "ActionBase", "Planner", "Director", "ActionNode", "GoalNode", "GoalBase"
-
+__all__ = "GoalBase", "ActionBase", "Planner", "ActionNode", "GoalNode", "GoalBase"
 
 logger = getLogger(__name__)
 
 
-class Forwarder:
-    """Container class to allow a service-API for plugins"""
-
-    def __init__(self, name):
-        self.forward_effect_name = name
-
-
-def expose(name):
-    return Forwarder(name)
-
-
 class GoalBase:
-
     state = {}
     priority = 0
 
@@ -38,68 +25,7 @@ class GoalBase:
         return True
 
 
-class ActionMeta(type):
-
-    def __new__(metacls, cls_name, bases, attrs):
-        if bases:
-            # Overwrite effect plugins to ellipsis
-            all_effects = attrs.get("effects", {})
-
-            # Validate precondition plugins
-            if "preconditions" in attrs:
-                for name, value in attrs['preconditions'].items():
-                    if value is Ellipsis:
-                        raise ValueError("Invalid value for precondition '{}'".format(name))
-
-                    elif hasattr(value, 'forward_effect_name'):
-                        if value.forward_effect_name not in all_effects:
-                            raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
-
-        return super().__new__(metacls, cls_name, bases, attrs)
-
-
-class ActionBase(metaclass=ActionMeta):
-    cost = 1
-    precedence = 0
-
-    effects = {}
-    preconditions = {}
-
-    apply_effects_on_exit = True
-
-    def __repr__(self):
-        return self.__class__.__name__
-
-    def apply_effects(self, world_state, goal_state):
-        """Apply action effects to state, resolving any variables from goal state
-
-        :param world_state: state to modify
-        :param goal_state: source for variables
-        """
-        for key, value in self.effects.items():
-            if value is Ellipsis:
-                value = goal_state[key]
-
-            world_state[key] = value
-
-    def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
-        return True
-
-    def get_status(self, world_state, goal_state):
-        return EvaluationState.success
-
-    def get_cost(self, world_state, goal_state):
-        return self.cost
-
-    def on_enter(self, world_state, goal_state):
-        pass
-
-    def on_exit(self, world_state, goal_state):
-        pass
-
-
 class NodeBase:
-
     def __init__(self, current_state=None, goal_state=None):
         if current_state is None:
             current_state = {}
@@ -202,11 +128,103 @@ class ActionNode(NodeBase):
                 current_state[key] = world_state[key]
 
 
+class ActionPlanStep:
+    """Container object for bound action and its goal state"""
+
+    def __init__(self, action, state):
+        self.action = action
+        self.goal_state = state
+
+    def __repr__(self):
+        return repr(self.action)
+
+
+class ActionPlan:
+    """Manager of a series of Actions which fulfil a goal state"""
+
+    def __init__(self, plan_steps):
+        self._plan_steps = plan_steps
+        self._plan_steps_it = iter(plan_steps)
+        self.plan_steps = ListView(self._plan_steps)
+        self.current_plan_step = None
+
+    def __repr__(self):
+        def repr_step(step):
+            return ("{!r}*" if step is self.current_plan_step else "{!r}").format(step)
+
+        return "GOAPAIPlan :: {{{}}}".format(" -> ".join([repr_step(s) for s in self._plan_steps]))
+
+    def cancel(self, world_state):
+        try:
+            # Cancel running step
+            current_step = self.current_plan_step
+            if current_step:
+                current_step.action.on_exit(world_state, current_step.goal_state)
+                self.current_plan_step = None
+
+        finally:
+            # Consume steps iterator
+            for _ in self._plan_steps_it:
+                pass
+
+    def update(self, world_state):
+        """Update the plan, ensuring it is valid
+
+        :param world_state: world_state object
+        """
+        finished_state = EvaluationState.success
+        running_state = EvaluationState.running
+
+        current_step = self.current_plan_step
+
+        while True:
+            # If existing step is being processed
+            if current_step is not None:
+                action = current_step.action
+                goal_state = current_step.goal_state
+
+                # Check its state
+                action_state = action.get_status(world_state, goal_state)
+
+                # If the plan isn't finished, return its state (failure / running)
+                if action_state == running_state:
+                    return running_state
+
+                # Leave previous step
+                action.on_exit(world_state, goal_state)
+
+                # Apply effects, but some actions deliberately prevent this because they do not solve symbolic problems
+                if action.apply_effects_on_exit:
+                    action.apply_effects(world_state, goal_state)
+
+                # Return if not finished (e.g if error occurred)
+                if action_state != finished_state:
+                    return action_state
+
+            # Get next step
+            try:
+                current_step = self.current_plan_step = next(self._plan_steps_it)
+
+            except StopIteration:
+                return EvaluationState.success
+
+            action = current_step.action
+            goal_state = current_step.goal_state
+
+            # Check preconditions
+            if not action.check_procedural_precondition(world_state, goal_state, is_planning=False):
+                return EvaluationState.failure
+
+            # Enter step
+            action.on_enter(world_state, goal_state)
+
+        return finished_state
+
+
 _key_action_precedence = attrgetter("action.precedence")
 
 
 class Planner(AStarAlgorithm):
-
     def __init__(self, actions, world_state):
         self.actions = actions
         self.world_state = world_state
@@ -295,19 +313,19 @@ class Planner(AStarAlgorithm):
 
         :param actions: valid action instances
         """
-        mapping = {}
+        effect_to_actions = {}
 
         for action in actions:
             for effect in action.effects:
                 try:
-                    effect_classes = mapping[effect]
+                    effect_classes = effect_to_actions[effect]
 
                 except KeyError:
-                    effect_classes = mapping[effect] = []
+                    effect_classes = effect_to_actions[effect] = []
 
                 effect_classes.append(action)
 
-        return mapping
+        return effect_to_actions
 
     def is_finished(self, node, goal, node_to_parent):
         if node.unsatisfied_keys:
@@ -321,173 +339,3 @@ class Planner(AStarAlgorithm):
             node = node_to_parent[node]
 
         return goal.satisfies_goal_state(current_state)
-
-
-class PlannerFailedException(Exception):
-    pass
-
-
-class ActionPlanStep:
-    """Container object for bound action and its goal state"""
-
-    def __init__(self, action, state):
-        self.action = action
-        self.goal_state = state
-
-    def __repr__(self):
-        return repr(self.action)
-
-
-class ActionPlan:
-    """Manager of a series of Actions which fulfil a goal state"""
-
-    def __init__(self, plan_steps):
-        self._plan_steps = plan_steps
-        self._plan_steps_it = iter(plan_steps)
-        self.plan_steps = ListView(self._plan_steps)
-        self.current_plan_step = None
-
-    def __repr__(self):
-        def repr_step(step):
-            return ("{!r}*" if step is self.current_plan_step else "{!r}").format(step)
-        return "GOAPAIPlan :: {{{}}}".format(" -> ".join([repr_step(s) for s in self._plan_steps]))
-
-    def cancel(self, world_state):
-        try:
-            # Cancel running step
-            current_step = self.current_plan_step
-            if current_step:
-                current_step.action.on_exit(world_state, current_step.goal_state)
-                self.current_plan_step = None
-
-        finally:
-            # Consume steps iterator
-            for _ in self._plan_steps_it:
-                pass
-
-    def update(self, world_state):
-        """Update the plan, ensuring it is valid
-
-        :param world_state: world_state object
-        """
-        finished_state = EvaluationState.success
-        running_state = EvaluationState.running
-
-        current_step = self.current_plan_step
-
-        while True:
-            # If existing step is being processed
-            if current_step is not None:
-                action = current_step.action
-                goal_state = current_step.goal_state
-
-                # Check its state
-                action_state = action.get_status(world_state, goal_state)
-
-                # If the plan isn't finished, return its state (failure / running)
-                if action_state == running_state:
-                    return running_state
-
-                # Leave previous step
-                action.on_exit(world_state, goal_state)
-
-                # Apply effects
-                if action.apply_effects_on_exit:
-                    action.apply_effects(world_state, goal_state)
-
-                # Return if not finished (e.g if error occurred)
-                if action_state != finished_state:
-                    return action_state
-
-            # Get next step
-            try:
-                current_step = self.current_plan_step = next(self._plan_steps_it)
-
-            except StopIteration:
-                return EvaluationState.success
-
-            action = current_step.action
-            goal_state = current_step.goal_state
-
-            # Check preconditions
-            if not action.check_procedural_precondition(world_state, goal_state, is_planning=False):
-                return EvaluationState.failure
-
-            # Enter step
-            action.on_enter(world_state, goal_state)
-
-        return finished_state
-
-
-class Director:
-    """Determine and update GOAP plans for AI"""
-
-    def __init__(self, planner, world_state, goals):
-        self.world_state = world_state
-        self.planner = planner
-        self.goals = goals
-
-        self._plan = None
-
-    @property
-    def sorted_goals(self):
-        """Return sorted list of goals, if relevant"""
-        # Update goals with sorted list
-        world_state = self.world_state
-
-        goal_pairs = []
-        for goal in self.goals:
-            relevance = goal.get_relevance(world_state)
-            if relevance <= 0.0:
-                continue
-
-            goal_pairs.append((relevance, goal))
-
-        goal_pairs.sort()
-
-        return [g for r, g in goal_pairs]
-
-    def find_best_plan(self):
-        """Find best plan to satisfy most relevant, valid goal"""
-        build_plan = self.planner.find_plan_for_goal
-
-        # Try all goals to see if we can satisfy them
-        for goal in self.sorted_goals:
-            # Check the goal isn't satisfied already
-            if goal.is_satisfied(self.world_state):
-                continue
-
-            try:
-                return build_plan(goal.state)
-
-            except PathNotFoundException:
-                continue
-
-        raise PlannerFailedException("Couldn't find suitable plan")
-
-    def update(self):
-        """Update current plan, or find new plan"""
-        world_state = self.world_state
-
-        # Rebuild plan
-        if self._plan is None:
-            try:
-                self._plan = self.find_best_plan()
-
-            except PlannerFailedException as err:
-                logger.exception("Unexpected error in finding plan")
-
-        else:
-            plan_state = self._plan.update(world_state)
-
-            if plan_state == EvaluationState.running:
-                return
-
-            elif plan_state == EvaluationState.failure:
-                logger.warn("Plan failed during execution of '{}'".format(self._plan.current_plan_step))
-
-            self._plan = None
-            self.update()
-
-
-
