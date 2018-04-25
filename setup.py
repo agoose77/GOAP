@@ -27,7 +27,7 @@ def find_packages_in_namespace(namespace):
     """Find packages in a namespace package
     :param namespace: name of namespace package
     """
-    return [f"{namespace}.{p}" for p in find_packages(namespace)]
+    return ["{}.{}".format(namespace, p) for p in find_packages(namespace)]
 
 
 packages = find_packages_in_namespace("goap")
