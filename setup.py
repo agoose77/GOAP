@@ -22,15 +22,7 @@ def get_requirements():
     requirements = ['networkx', 'matplotlib']
     return requirements
 
-
-def find_packages_in_namespace(namespace):
-    """Find packages in a namespace package
-    :param namespace: name of namespace package
-    """
-    return ["{}.{}".format(namespace, p) for p in find_packages(namespace)]
-
-
-packages = find_packages_in_namespace("goap")
+packages = find_packages()
 package_data = {}
 
 setup(
