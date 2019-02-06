@@ -1,4 +1,5 @@
 from enum import auto, Enum
+from typing import NamedTuple
 
 
 class EvaluationState(Enum):
@@ -7,11 +8,9 @@ class EvaluationState(Enum):
     running = auto()
 
 
-class EffectReference:
+class EffectReference(NamedTuple):
     """Container class to allow a service-API for plugins"""
-
-    def __init__(self, name: str):
-        self.forwarded_effect_name = name
+    forwarded_effect_name: str
 
 
 def reference(name: str) -> EffectReference:
