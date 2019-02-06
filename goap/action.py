@@ -12,13 +12,13 @@ class EvaluationState(Enum):
 
 
 class EffectReference(NamedTuple):
-    """Container class to allow a service-API for plugins"""
+    """Container class to allow a service-API for plugins."""
 
     forwarded_effect_name: str
 
 
 def reference(name: str) -> EffectReference:
-    """Convenience function to return Forwarder object"""
+    """Convenience function to return Forwarder object."""
     return EffectReference(name)
 
 

@@ -11,7 +11,7 @@ class NoPlanFoundError(Exception):
 
 
 class Director:
-    """Determine and update GOAP plans for AI"""
+    """Determine and update GOAP plans for AI."""
 
     def __init__(self, planner, world_state, goals):
         self.world_state = world_state
@@ -22,7 +22,7 @@ class Director:
 
     @property
     def sorted_goals(self):
-        """Return sorted list of goals, if relevant"""
+        """Return sorted list of goals, if relevant."""
         # Update goals with sorted list
         world_state = self.world_state
 
@@ -40,7 +40,7 @@ class Director:
         return [g for r, g in goal_relevance_pairs]
 
     def find_best_plan(self):
-        """Find best plan to satisfy most relevant, valid goal"""
+        """Find best plan to satisfy most relevant, valid goal."""
         build_plan = self.planner.find_plan_for_goal
 
         # Try all goals to see if we can satisfy them
@@ -58,7 +58,7 @@ class Director:
         raise NoPlanFoundError("Couldn't find suitable plan")
 
     def update(self):
-        """Update current plan, or find new plan"""
+        """Update current plan, or find new plan."""
         world_state = self.world_state
 
         # Rebuild plan
