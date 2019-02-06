@@ -29,9 +29,20 @@ class Goal:
     priority: float = 1.0
 
     def get_relevance(self, world_state: StateType) -> float:
+        """Return the relevance of the goal given the current world state.
+        Larger is more relevant.
+
+        :param world_state: world state symbol table
+        :return:
+        """
         return self.priority
 
     def is_satisfied(self, world_state: StateType) -> bool:
+        """Return True if this goal is satisfied under the given world state
+
+        :param world_state: world state symbol table
+        :return:
+        """
         for key, value in self.state.items():
             if world_state[key] != value:
                 return False
@@ -120,6 +131,12 @@ class ActionNode(Node):
         A* search terminates once current state satisfies goal state
 
         Required for heuristic estimate.
+
+        :param action: Action object
+        :param current_state: mapping of current world state of pathfinder
+        :param goal_state: goal state of pathfinder
+        :param world_state: external world state (to populate default values for state keys introduced by preconditions)
+        :return:
         """
         # Get state of preconditions
         action_preconditions = action.preconditions
@@ -228,10 +245,12 @@ class ActionPlan:
 
     @property
     def current_step(self) -> Optional[ActionPlanStep]:
+        """Return current plan step."""
         return self._current_step
 
     @property
     def steps(self):
+        """Return view over plan steps."""
         return ListView(self._steps)
 
     def update(self):
@@ -242,6 +261,7 @@ class ActionPlan:
             return exc.value
 
     def cancel(self):
+        """Cancel execution of plan."""
         self._is_cancelled = True
 
 
@@ -329,7 +349,7 @@ class Planner(AStarAlgorithm):
         return neighbours
 
     @staticmethod
-    def create_effect_table(actions) -> Dict[str, List[Action]]:
+    def create_effect_table(actions: Iterable[Action]) -> Dict[str, List[Action]]:
         """Associate effects with appropriate actions.
 
         :param actions: valid action instances
@@ -344,6 +364,13 @@ class Planner(AStarAlgorithm):
         return effect_to_actions
 
     def is_finished(self, node: ActionNode, goal: GoalNode, node_to_parent: Dict[ActionNode, ActionNode]) -> bool:
+        """Return True if the given node is a solution to the path-finding problem (satisfies the goal)
+
+        :param node: ActionNode object
+        :param goal: GoalNode object
+        :param node_to_parent: mapping from an ActionNode to its parent ActionNode
+        :return:
+        """
         if node.unsatisfied_state:
             return False
 

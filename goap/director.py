@@ -46,19 +46,16 @@ class Director:
     @property
     def sorted_goals(self) -> List[Goal]:
         """Return sorted list of goals, if relevant."""
-        # Update goals with sorted list
         world_state = self.world_state
 
         goal_relevance_pairs = []
-
         for goal in self.goals:
             relevance = goal.get_relevance(world_state)
             if relevance <= 0.0:
                 continue
 
             goal_relevance_pairs.append((relevance, goal))
-
-        goal_relevance_pairs.sort()
+        goal_relevance_pairs.sort(reverse=True)
 
         return [g for r, g in goal_relevance_pairs]
 
