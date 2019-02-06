@@ -4,7 +4,6 @@ from .utils import DictView
 
 
 class State(ABC):
-
     @abstractproperty
     def name(self):
         pass
@@ -17,7 +16,6 @@ class State(ABC):
 
 
 class FiniteStateMachine:
-
     def __init__(self):
         self._state = None
         self._states = {}
@@ -52,7 +50,6 @@ class FiniteStateMachine:
 
 
 class PushDownAutomaton:
-
     def __init__(self):
         self._states = {}
         self._stack = []
@@ -85,5 +82,3 @@ class PushDownAutomaton:
             self.pop()
 
         self.push(state)
-
-

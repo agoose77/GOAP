@@ -26,7 +26,7 @@ def visualise_plan(plan, filename):
             next_name = repr_action(next_step, i + 1)
             graph.add_edge(name, next_name)
 
-    plt.axis('off')
+    plt.axis("off")
     draw_networkx(graph)
     plt.savefig(filename)
     plt.close()

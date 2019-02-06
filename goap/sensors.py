@@ -2,7 +2,6 @@ from abc import abstractmethod, ABC
 
 
 class SensorBase(ABC):
-
     def __init__(self, ai):
         self.ai = ai
 

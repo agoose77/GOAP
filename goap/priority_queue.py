@@ -2,7 +2,6 @@ from heapq import heappush, heappop
 
 
 class PriorityElement:
-
     def __init__(self, element, score):
         self.value = element
         self.score = score

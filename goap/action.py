@@ -1,5 +1,5 @@
 from enum import auto, Enum
-from typing import NamedTuple
+from typing import NamedTuple, Dict, Any
 
 
 class EvaluationState(Enum):
@@ -10,6 +10,7 @@ class EvaluationState(Enum):
 
 class EffectReference(NamedTuple):
     """Container class to allow a service-API for plugins"""
+
     forwarded_effect_name: str
 
 
@@ -23,12 +24,11 @@ expose = reference
 
 
 class ActionValidator(type):
-
     def __new__(metacls, cls_name, bases, attrs):
         if bases:
             # Validate precondition plugins
             try:
-                preconditions = attrs['preconditions']
+                preconditions = attrs["preconditions"]
             except KeyError:
                 pass
             else:
@@ -44,24 +44,24 @@ class ActionValidator(type):
             if value is Ellipsis:
                 raise ValueError("Invalid value for precondition '{}'".format(name))
 
-            elif hasattr(value, 'forwarded_effect_name'):
+            elif hasattr(value, "forwarded_effect_name"):
                 if value.forwarded_effect_name not in all_effects:
                     raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
 
 
 class ActionBase(metaclass=ActionValidator):
-    cost = 1
-    precedence = 0
+    cost: int = 1
+    precedence: int = 0
 
-    effects = {}
-    preconditions = {}
+    effects: Dict[str, Any] = {}
+    preconditions: Dict[str, Any] = {}
 
     apply_effects_on_exit = True
 
     def __repr__(self):
         return "<Action {!r}>".format(self.__class__.__name__)
 
-    def apply_effects(self, world_state, goal_state):
+    def apply_effects(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
         """Apply action effects to state, resolving any variables from goal state
 
         :param world_state: state to modify
@@ -73,17 +73,19 @@ class ActionBase(metaclass=ActionValidator):
 
             world_state[key] = value
 
-    def check_procedural_precondition(self, world_state, goal_state, is_planning=True):
+    def check_procedural_precondition(
+        self, world_state: Dict[str, Any], goal_state: Dict[str, Any], is_planning: bool = True
+    ) -> bool:
         return True
 
-    def get_status(self, world_state, goal_state):
+    def get_status(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]) -> EvaluationState:
         return EvaluationState.success
 
-    def get_cost(self, world_state, goal_state):
+    def get_cost(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]) -> int:
         return self.cost
 
-    def on_enter(self, world_state, goal_state):
+    def on_enter(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
         pass
 
-    def on_exit(self, world_state, goal_state):
+    def on_exit(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
         pass

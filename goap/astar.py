@@ -12,7 +12,6 @@ class PathNotFoundException(Exception):
 
 
 class AStarAlgorithm(ABC):
-
     @abstractmethod
     def get_neighbours(self, node):
         raise NotImplementedError
@@ -84,4 +83,3 @@ class AStarAlgorithm(ABC):
             pass
 
         return result
-

@@ -247,8 +247,9 @@ class Planner(AStarAlgorithm):
         node_path_next = iter(node_path)
         next(node_path_next)
 
-        plan_steps = [ActionPlanStep(node.action, next_node.goal_state) for next_node, node in
-                      zip(node_path, node_path_next)]
+        plan_steps = [
+            ActionPlanStep(node.action, next_node.goal_state) for next_node, node in zip(node_path, node_path_next)
+        ]
         plan_steps.reverse()
 
         return ActionPlan(plan_steps)

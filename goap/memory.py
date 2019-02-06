@@ -24,15 +24,16 @@ def _generate_record_class(*field_names):
         data.apply_defaults()
 
         self.__dict__.update(data.arguments.items())
-        self.__dict__['field_getters'] = [(n, g) for n, g in name_to_getter.items()
-                                          if data.arguments[n] is not EmptyValue]
+        self.__dict__["field_getters"] = [
+            (n, g) for n, g in name_to_getter.items() if data.arguments[n] is not EmptyValue
+        ]
 
     def record_setattr(self, name, value):
         raise RuntimeError("Attributes of record read-only")
 
     cls_dict["__repr__"] = record_repr
     cls_dict["__init__"] = record_init
-    cls_dict['__setattr__'] = record_setattr
+    cls_dict["__setattr__"] = record_setattr
 
     return type("Record", (), cls_dict)
 
@@ -41,7 +42,6 @@ Record = _generate_record_class("type", "subject", "target", "confidence", "data
 
 
 class RecordMemory:
-
     def __init__(self):
         self._records = []
 
@@ -66,6 +66,7 @@ if __name__ == "__main__":
     memory = RecordMemory()
 
     from collections import namedtuple
+
     obj_cls = namedtuple("SomeObj", "name")
     some_obj = obj_cls("Obj")
     some_other_obj = obj_cls("OtherObj")
