@@ -25,13 +25,8 @@ class UnsatisfiableGoalEncountered(BaseException):
 
 
 class Goal:
-    def __init__(self, name: str, state: StateType, priority: float = 0.0):
-        self.name = name
-        self.state = state
-        self.priority = priority
-
-    def __repr__(self) -> str:
-        return "Goal(name={!r}, state={!r}, priority={!r})".format(self.name, self.state, self.priority)
+    state: StateType = {}
+    priority: float = 1.0
 
     def get_relevance(self, world_state: StateType) -> float:
         return self.priority
