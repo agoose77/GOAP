@@ -1,8 +1,8 @@
+from collections import defaultdict
+from enum import Enum, auto
 from logging import getLogger
 from operator import attrgetter
-from collections import defaultdict
-from typing import Any, Dict, NamedTuple, List, Sequence, Set, Tuple, Iterable, Generator
-from enum import Enum, auto
+from typing import Any, Dict, NamedTuple, List, Sequence, AbstractSet, Tuple, Iterable, Generator, Optional, DefaultDict
 
 from .action import Action, ActionStatus, StateType
 from .astar import AStarAlgorithm
@@ -27,8 +27,8 @@ class UnsatisfiableGoalEncountered(BaseException):
 class Goal:
     def __init__(self, name: str, state: StateType, priority: float = 0.0):
         self.name = name
-        self.state: StateType = state
-        self.priority: float = priority
+        self.state = state
+        self.priority = priority
 
     def __repr__(self) -> str:
         return "Goal(name={!r}, state={!r}, priority={!r})".format(self.name, self.state, self.priority)
@@ -54,11 +54,11 @@ class Node:
         if goal_state is None:
             goal_state = {}
 
-        self.current_state: StateType = current_state
-        self.goal_state: StateType = goal_state
+        self.current_state = current_state
+        self.goal_state = goal_state
 
     @property
-    def unsatisfied_state(self) -> Set[Tuple[str, Any]]:
+    def unsatisfied_state(self) -> AbstractSet[Tuple[str, Any]]:
         """Return the keys of the unsatisfied state symbols between the goal and current state."""
         return self.goal_state.items() - self.current_state.items()
 
@@ -90,7 +90,7 @@ class GoalNode(Node):
 class ActionNode(Node):
     """A* Node with associated GOAP action."""
 
-    def __init__(self, action, current_state: StateType = None, goal_state: StateType = None):
+    def __init__(self, action: Action, current_state: StateType = None, goal_state: StateType = None):
         super().__init__(current_state, goal_state)
 
         self.action = action
@@ -153,7 +153,7 @@ class ActionNode(Node):
 class ActionPlanStep(NamedTuple):
     """Container object for bound action and its goal state."""
 
-    action: Any
+    action: Action
     goal_state: StateType
 
 
@@ -161,11 +161,10 @@ class ActionPlan:
     """Manager of a series of Actions which fulfil a goal state."""
 
     def __init__(self, plan_steps: List[ActionPlanStep], world_state: StateType):
-        self._plan_steps = plan_steps
+        self._steps = plan_steps
         self._world_state = world_state
 
-        self._steps = ListView(self._plan_steps)
-        self._current_step = None
+        self._current_step: Optional[ActionPlanStep] = None
         self._is_cancelled = False
         self._generator = self._execution_loop(plan_steps, world_state)
         next(self._generator)
@@ -176,10 +175,12 @@ class ActionPlan:
     def __str__(self) -> str:
         return "{}: {}".format(
             type(self).__name__,
-            " -> ".join([("{!r}{}" if s is self._current_step else "{!r}").format(s) for s in self._plan_steps]),
+            " -> ".join([("{!r}*" if s is self._current_step else "{!r}").format(s) for s in self._steps]),
         )
 
-    def _execution_loop(self, plan_steps: Iterable[ActionPlanStep], world_state: StateType) -> Generator[PlanStatus, bool, PlanStatus]:
+    def _execution_loop(
+        self, plan_steps: Iterable[ActionPlanStep], world_state: StateType
+    ) -> Generator[PlanStatus, Optional[bool], PlanStatus]:
         """Generator which yields `PlanStatus` values at discrete yield points (which indicate the end of one evaluation step).
 
          :param plan_steps: iterable of ActionPlanStep objects
@@ -204,10 +205,10 @@ class ActionPlan:
 
             # 2. Update plan step
             while True:
-                status = action.get_status(world_state, goal_state)
+                status: ActionStatus = action.get_status(world_state, goal_state)
                 if status == ActionStatus.running:
                     # Suspend execution as action is "busy"
-                    is_cancelled = yield status
+                    is_cancelled = yield PlanStatus.running
 
                     if is_cancelled:
                         # We were cancelled, inform action of failure
@@ -229,6 +230,14 @@ class ActionPlan:
                     action.apply_effects(world_state, goal_state)
 
         return PlanStatus.success
+
+    @property
+    def current_step(self) -> Optional[ActionPlanStep]:
+        return self._current_step
+
+    @property
+    def steps(self):
+        return ListView(self._steps)
 
     def update(self):
         """Advance plan by one execution step."""
@@ -330,7 +339,7 @@ class Planner(AStarAlgorithm):
 
         :param actions: valid action instances
         """
-        effect_to_actions = defaultdict(list)
+        effect_to_actions: DefaultDict[str, List[Action]] = defaultdict(list)
 
         for action in actions:
             for effect in action.effects:

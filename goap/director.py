@@ -1,7 +1,9 @@
 from logging import getLogger
+from typing import List, Sequence
 
-from .action import ActionStatus
+from .action import StateType
 from .astar import PathNotFoundException
+from .planner import Planner, PlanStatus, ActionPlan, Goal
 
 logger = getLogger(__name__)
 
@@ -13,15 +15,36 @@ class NoPlanFoundError(Exception):
 class Director:
     """Determine and update GOAP plans for AI."""
 
-    def __init__(self, planner, world_state, goals):
+    def __init__(self, planner: Planner, world_state: StateType, goals: Sequence[Goal]):
         self.world_state = world_state
         self.planner = planner
         self.goals = goals
 
-        self._plan = None
+        self._generator = self._execution_loop()
+
+    def _execution_loop(self):
+        while True:
+            # Select plan
+            try:
+                plan = self.find_best_plan()
+            except NoPlanFoundError:
+                logger.exception("Unable to find viable plan")
+                yield
+                continue
+
+            # Update plan
+            while True:
+                status = plan.update()
+                if status == PlanStatus.running:
+                    yield
+                    continue
+
+                if status == PlanStatus.failure:
+                    logger.warning("Plan failed during execution of '{}'".format(plan.current_step))
+                break
 
     @property
-    def sorted_goals(self):
+    def sorted_goals(self) -> List[Goal]:
         """Return sorted list of goals, if relevant."""
         # Update goals with sorted list
         world_state = self.world_state
@@ -39,7 +62,7 @@ class Director:
 
         return [g for r, g in goal_relevance_pairs]
 
-    def find_best_plan(self):
+    def find_best_plan(self) -> ActionPlan:
         """Find best plan to satisfy most relevant, valid goal."""
         build_plan = self.planner.find_plan_for_goal
 
@@ -59,24 +82,4 @@ class Director:
 
     def update(self):
         """Update current plan, or find new plan."""
-        world_state = self.world_state
-
-        # Rebuild plan
-        if self._plan is None:
-            try:
-                self._plan = self.find_best_plan()
-
-            except NoPlanFoundError:
-                logger.exception("Unable to find viable plan")
-
-            else:
-                plan_state = self._plan.update(world_state)
-
-                if plan_state == ActionStatus.running:
-                    return
-
-                elif plan_state == ActionStatus.failure:
-                    logger.warning("Plan failed during execution of '{}'".format(self._plan.current_plan_step))
-
-        self._plan = None
-        self.update()
+        next(self._generator)

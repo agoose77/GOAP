@@ -53,9 +53,9 @@ class Action(metaclass=ActionValidator):
     effects: ClassVar[StateType] = {}
     preconditions: ClassVar[StateType] = {}
 
-    cost: float = 1.0
-    precedence: float = 0.0
-    apply_effects_on_exit: bool = True
+    cost = 1.0
+    precedence = 0.0
+    apply_effects_on_exit = True
 
     def apply_effects(self, world_state: StateType, goal_state: StateType):
         """Apply action effects to state, resolving any variables from goal state
