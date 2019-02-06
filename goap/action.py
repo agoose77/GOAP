@@ -1,5 +1,8 @@
 from enum import auto, Enum
-from typing import NamedTuple, Dict, Any
+from typing import NamedTuple, ClassVar, Dict, Any, Tuple
+
+
+StateType = Dict[str, Any]
 
 
 class EvaluationState(Enum):
@@ -24,18 +27,20 @@ expose = reference
 
 
 class ActionValidator(type):
-    def __new__(metacls, cls_name, bases, attrs):
+    """Metaclass to validate action classes at define time."""
+
+    def __new__(mcs, cls_name: str, bases: Tuple[type], attrs: Dict[str, Any]):
         if bases:
             # Validate precondition plugins
             preconditions = attrs.get("preconditions", {})
             # Overwrite effect plugins to ellipsis
             all_effects = attrs.get("effects", {})
-            metacls._validate_preconditions(all_effects, preconditions)
+            mcs._validate_preconditions(all_effects, preconditions)
 
-        return super().__new__(metacls, cls_name, bases, attrs)
+        return super().__new__(mcs, cls_name, bases, attrs)
 
     @staticmethod
-    def _validate_preconditions(all_effects, preconditions):
+    def _validate_preconditions(all_effects: StateType, preconditions: StateType):
         for name, value in preconditions.items():
             if value is Ellipsis:
                 raise ValueError("Invalid value for precondition '{}'".format(name))
@@ -45,18 +50,14 @@ class ActionValidator(type):
 
 
 class Action(metaclass=ActionValidator):
-    cost: int = 1
-    precedence: int = 0
+    effects: ClassVar[StateType] = {}
+    preconditions: ClassVar[StateType] = {}
 
-    effects: Dict[str, Any] = {}
-    preconditions: Dict[str, Any] = {}
-
+    cost: float = 1.0
+    precedence: float = 0.0
     apply_effects_on_exit: bool = True
 
-    def __repr__(self) -> str:
-        return "<Action {!r}>".format(self.__class__.__name__)
-
-    def apply_effects(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
+    def apply_effects(self, world_state: StateType, goal_state: StateType):
         """Apply action effects to state, resolving any variables from goal state
 
         :param world_state: state to modify
@@ -69,18 +70,18 @@ class Action(metaclass=ActionValidator):
             world_state[key] = value
 
     def check_procedural_precondition(
-        self, world_state: Dict[str, Any], goal_state: Dict[str, Any], is_planning: bool = True
+        self, world_state: StateType, goal_state: StateType, is_planning: bool = True
     ) -> bool:
         return True
 
-    def get_status(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]) -> EvaluationState:
+    def get_status(self, world_state: StateType, goal_state: StateType) -> EvaluationState:
         return EvaluationState.success
 
-    def get_cost(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]) -> int:
+    def get_cost(self, world_state: StateType, goal_state: StateType) -> float:
         return self.cost
 
-    def on_enter(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
+    def on_enter(self, world_state: StateType, goal_state: StateType):
         pass
 
-    def on_exit(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
+    def on_exit(self, world_state: StateType, goal_state: StateType):
         pass

@@ -1,11 +1,14 @@
 from logging import getLogger
 from operator import attrgetter
+from collections import defaultdict
+from typing import Any, Dict, NamedTuple, List, Sequence
 
-from .action import EvaluationState
+
+from .action import Action, EvaluationState, StateType
 from .astar import AStarAlgorithm
 from .utils import ListView
 
-__all__ = "Goal", "Planner", "ActionNode", "GoalNode", "Goal"
+__all__ = "Goal", "Planner", "ActionNode", "GoalNode"
 
 logger = getLogger(__name__)
 
@@ -15,13 +18,18 @@ class UnsatisfiableGoalEncountered(BaseException):
 
 
 class Goal:
-    state = {}
-    priority = 0
+    def __init__(self, name: str, state: StateType, priority: float = 0.0):
+        self.name = name
+        self.state: StateType = state
+        self.priority: float = priority
 
-    def get_relevance(self, world_state):
+    def __repr__(self) -> str:
+        return "Goal(name={!r}, state={!r}, priority={!r})".format(self.name, self.state, self.priority)
+
+    def get_relevance(self, world_state: StateType) -> float:
         return self.priority
 
-    def is_satisfied(self, world_state):
+    def is_satisfied(self, world_state: StateType) -> bool:
         for key, value in self.state.items():
             if world_state[key] != value:
                 return False
@@ -30,23 +38,23 @@ class Goal:
 
 
 class Node:
-    def __init__(self, current_state=None, goal_state=None):
+    def __init__(self, current_state: StateType = None, goal_state: StateType = None):
         if current_state is None:
             current_state = {}
 
         if goal_state is None:
             goal_state = {}
 
-        self.current_state = current_state
-        self.goal_state = goal_state
+        self.current_state: StateType = current_state
+        self.goal_state: StateType = goal_state
 
     @property
-    def unsatisfied_keys(self):
+    def unsatisfied_keys(self) -> List[str]:
         """Return the keys of the unsatisfied state symbols between the goal and current state"""
         current_state = self.current_state
         return [k for k, v in self.goal_state.items() if not current_state[k] == v]
 
-    def satisfies_goal_state(self, state):
+    def satisfies_goal_state(self, state: StateType) -> bool:
         """Determine if provided state satisfies required goal state
 
         :param state: state to test
@@ -67,23 +75,23 @@ class Node:
 class GoalNode(Node):
     """GOAP A* Goal Node"""
 
-    def __repr__(self):
-        return "<GOAPAStarGoalNode: {}>".format(self.goal_state)
+    def __repr__(self) -> str:
+        return "{}(goal_state={!r})".format(type(self).__name__, self.goal_state)
 
 
 class ActionNode(Node):
     """A* Node with associated GOAP action"""
 
-    def __init__(self, action, current_state=None, goal_state=None):
+    def __init__(self, action, current_state: StateType = None, goal_state: StateType = None):
         super().__init__(current_state, goal_state)
 
         self.action = action
 
-    def __repr__(self):
-        return "<GOAPAStarActionNode {}>".format(self.action)
+    def __repr__(self) -> str:
+        return "{}(action={!r})".format(type(self).__name__, self.action)
 
     @classmethod
-    def create_neighbour(cls, action, parent, world_state):
+    def create_neighbour(cls, action: Action, parent: 'ActionNode', world_state: StateType) -> 'ActionNode':
         current_state = parent.current_state.copy()
         goal_state = parent.goal_state.copy()
 
@@ -92,7 +100,7 @@ class ActionNode(Node):
         return cls(action, current_state, goal_state)
 
     @staticmethod
-    def _update_states_from_action(action, current_state, goal_state, world_state):
+    def _update_states_from_action(action: Action, current_state: StateType, goal_state: StateType, world_state: StateType):
         """Update internal current and goal states, according to action effects and preconditions
 
         This step is used to backwards track from goal state, adding requirements of this action to goal, and
@@ -128,33 +136,31 @@ class ActionNode(Node):
                 current_state[key] = world_state[key]
 
 
-class ActionPlanStep:
+class ActionPlanStep(NamedTuple):
     """Container object for bound action and its goal state"""
 
-    def __init__(self, action, state):
-        self.action = action
-        self.goal_state = state
-
-    def __repr__(self):
-        return repr(self.action)
+    action: Any
+    goal_state: StateType
 
 
 class ActionPlan:
     """Manager of a series of Actions which fulfil a goal state"""
 
-    def __init__(self, plan_steps):
+    def __init__(self, plan_steps: List[ActionPlanStep]):
         self._plan_steps = plan_steps
         self._plan_steps_it = iter(plan_steps)
         self.plan_steps = ListView(self._plan_steps)
         self.current_plan_step = None
 
-    def __repr__(self):
-        def repr_step(step):
-            return ("{!r}*" if step is self.current_plan_step else "{!r}").format(step)
+    def __repr__(self) -> str:
+        return "{}(plan_steps={!r})".format(type(self).__name__, self.plan_steps)
 
-        return "GOAPAIPlan :: {{{}}}".format(" -> ".join([repr_step(s) for s in self._plan_steps]))
+    def __str__(self) -> str:
+        return "{}: {}".format(type(self).__name__, " -> ".join([
+            ("{!r}*" if s is self.current_plan_step else "{!r}").format(s)
+            for s in self._plan_steps]))
 
-    def cancel(self, world_state):
+    def cancel(self, world_state: StateType):
         try:
             # Cancel running step
             current_step = self.current_plan_step
@@ -167,7 +173,7 @@ class ActionPlan:
             for _ in self._plan_steps_it:
                 pass
 
-    def update(self, world_state):
+    def update(self, world_state: StateType) -> EvaluationState:
         """Update the plan, ensuring it is valid
 
         :param world_state: world_state object
@@ -218,20 +224,18 @@ class ActionPlan:
             # Enter step
             action.on_enter(world_state, goal_state)
 
-        return finished_state
-
 
 _key_action_precedence = attrgetter("action.precedence")
 
 
 class Planner(AStarAlgorithm):
-    def __init__(self, actions, world_state):
+    def __init__(self, actions: Sequence[Action], world_state: StateType):
         self.actions = actions
         self.world_state = world_state
 
         self.effects_to_actions = self.create_effect_table(actions)
 
-    def find_plan_for_goal(self, goal_state):
+    def find_plan_for_goal(self, goal_state: StateType):
         """Find shortest plan to produce goal state
 
         :param goal_state: state of goal
@@ -254,14 +258,15 @@ class Planner(AStarAlgorithm):
 
         return ActionPlan(plan_steps)
 
-    def get_h_score(self, node, goal):
+    def get_h_score(self, node: ActionNode, goal: GoalNode) -> int:
         """Rough estimate of cost of node, based upon satisfaction of goal state
 
         :param node: node to evaluate heuristic
+        :param goal: goal node
         """
         return len(node.unsatisfied_keys)
 
-    def get_g_score(self, current, node):
+    def get_g_score(self, current: ActionNode, node: ActionNode) -> float:
         """Determine procedural (or static) cost of this action
 
         :param current: node to move from (unused)
@@ -270,7 +275,7 @@ class Planner(AStarAlgorithm):
         # Update world states
         return node.action.get_cost(self.world_state, node.goal_state)
 
-    def get_neighbours(self, node):
+    def get_neighbours(self, node: ActionNode) -> List[ActionNode]:
         """Return new nodes for given node which satisfy missing state
 
         :param node: node performing request
@@ -284,7 +289,6 @@ class Planner(AStarAlgorithm):
         for effect in node.unsatisfied_keys:
             try:
                 actions = effects_to_actions[effect]
-
             except KeyError:
                 continue
 
@@ -299,7 +303,6 @@ class Planner(AStarAlgorithm):
                 # Try and create a neighbour node, except if the goal could not be satisfied
                 try:
                     neighbour = ActionNode.create_neighbour(action, node, world_state)
-
                 except UnsatisfiableGoalEncountered:
                     continue
 
@@ -309,26 +312,21 @@ class Planner(AStarAlgorithm):
         return neighbours
 
     @staticmethod
-    def create_effect_table(actions):
+    def create_effect_table(actions) -> Dict[str, List[Action]]:
         """Associate effects with appropriate actions
 
         :param actions: valid action instances
         """
-        effect_to_actions = {}
+        effect_to_actions = defaultdict(list)
 
         for action in actions:
             for effect in action.effects:
-                try:
-                    effect_classes = effect_to_actions[effect]
+                effect_to_actions[effect].append(action)
 
-                except KeyError:
-                    effect_classes = effect_to_actions[effect] = []
-
-                effect_classes.append(action)
-
+        effect_to_actions.default_factory = None
         return effect_to_actions
 
-    def is_finished(self, node, goal, node_to_parent):
+    def is_finished(self, node: ActionNode, goal: GoalNode, node_to_parent: Dict[ActionNode, ActionNode]) -> bool:
         if node.unsatisfied_keys:
             return False
 
