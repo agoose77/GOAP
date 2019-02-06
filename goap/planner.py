@@ -1,16 +1,23 @@
 from logging import getLogger
 from operator import attrgetter
 from collections import defaultdict
-from typing import Any, Dict, NamedTuple, List, Sequence, Set, Tuple
+from typing import Any, Dict, NamedTuple, List, Sequence, Set, Tuple, Iterable, Generator
+from enum import Enum, auto
 
-
-from .action import Action, EvaluationState, StateType
+from .action import Action, ActionStatus, StateType
 from .astar import AStarAlgorithm
 from .utils import ListView
 
 __all__ = "Goal", "Planner", "ActionNode", "GoalNode"
 
 logger = getLogger(__name__)
+
+
+class PlanStatus(Enum):
+    failure = auto()
+    success = auto()
+    running = auto()
+    cancelled = auto()
 
 
 class UnsatisfiableGoalEncountered(BaseException):
@@ -93,6 +100,13 @@ class ActionNode(Node):
 
     @classmethod
     def create_neighbour(cls, action: Action, parent: "ActionNode", world_state: StateType) -> "ActionNode":
+        """Create an ActionNode instance, with the same initial starting state as a given action.
+
+        :param action: action for the new node
+        :param parent: node from which the neighbour is created
+        :param world_state: current world state, used to populate missing state fields
+        :return:
+        """
         current_state = parent.current_state.copy()
         goal_state = parent.goal_state.copy()
 
@@ -120,13 +134,10 @@ class ActionNode(Node):
 
         # 2 Update goal state from action preconditions, resolve variables
         for key, value in action_preconditions.items():
-            # If we are overwriting an existing goal, it must already be satisfied (goal[k]=current[k]),
+            # If we are overwriting an existing goal, it must already be satisfied (i.e. goal[k] == current[k]),
             # or else this path is unsolveable!
             if key in goal_state:
-                goal_value = goal_state[key]
-                current_value = current_state[key]
-
-                if current_value != goal_value:
+                if current_state[key] != goal_state[key]:
                     raise UnsatisfiableGoalEncountered()
 
             # Preconditions can expose effect plugins to a dependency
@@ -149,84 +160,85 @@ class ActionPlanStep(NamedTuple):
 class ActionPlan:
     """Manager of a series of Actions which fulfil a goal state."""
 
-    def __init__(self, plan_steps: List[ActionPlanStep]):
+    def __init__(self, plan_steps: List[ActionPlanStep], world_state: StateType):
         self._plan_steps = plan_steps
-        self._plan_steps_it = iter(plan_steps)
-        self.plan_steps = ListView(self._plan_steps)
-        self.current_plan_step = None
+        self._world_state = world_state
+
+        self._steps = ListView(self._plan_steps)
+        self._current_step = None
+        self._is_cancelled = False
+        self._generator = self._execution_loop(plan_steps, world_state)
+        next(self._generator)
 
     def __repr__(self) -> str:
-        return "{}(plan_steps={!r})".format(type(self).__name__, self.plan_steps)
+        return "{}(plan_steps={!r})".format(type(self).__name__, self._steps)
 
     def __str__(self) -> str:
         return "{}: {}".format(
             type(self).__name__,
-            " -> ".join([("{!r}*" if s is self.current_plan_step else "{!r}").format(s) for s in self._plan_steps]),
+            " -> ".join([("{!r}{}" if s is self._current_step else "{!r}").format(s) for s in self._plan_steps]),
         )
 
-    def cancel(self, world_state: StateType):
-        try:
-            # Cancel running step
-            current_step = self.current_plan_step
-            if current_step:
-                current_step.action.on_exit(world_state, current_step.goal_state)
-                self.current_plan_step = None
+    def _execution_loop(self, plan_steps: Iterable[ActionPlanStep], world_state: StateType) -> Generator[PlanStatus, bool, PlanStatus]:
+        """Generator which yields `PlanStatus` values at discrete yield points (which indicate the end of one evaluation step).
 
-        finally:
-            # Consume steps iterator
-            for _ in self._plan_steps_it:
-                pass
+         :param plan_steps: iterable of ActionPlanStep objects
+         :param world_state: world state symbol table
+         :return:
+         """
+        # Initial yield to allow us to initialise the generator with next()
+        yield PlanStatus.running
 
-    def update(self, world_state: StateType) -> EvaluationState:
-        """Update the plan, ensuring it is valid.
+        for step in plan_steps:
+            self._current_step = step
 
-        :param world_state: world_state object
-        """
-        finished_state = EvaluationState.success
-        running_state = EvaluationState.running
+            action = step.action
+            goal_state = step.goal_state
 
-        current_step = self.current_plan_step
+            # 1. Initialise plan step
+            if not action.check_procedural_precondition(world_state, goal_state, is_planning=False):
+                # Stop execution as action cannot be executed
+                return PlanStatus.failure
 
-        while True:
-            # If existing step is being processed
-            if current_step is not None:
-                action = current_step.action
-                goal_state = current_step.goal_state
+            action.on_enter(world_state, goal_state)
 
-                # Check its state
-                action_state = action.get_status(world_state, goal_state)
+            # 2. Update plan step
+            while True:
+                status = action.get_status(world_state, goal_state)
+                if status == ActionStatus.running:
+                    # Suspend execution as action is "busy"
+                    is_cancelled = yield status
 
-                # If the plan isn't finished, return its state (failure / running)
-                if action_state == running_state:
-                    return running_state
+                    if is_cancelled:
+                        # We were cancelled, inform action of failure
+                        action.on_failure(world_state, goal_state)
+                        return PlanStatus.cancelled
+                else:
+                    break
 
-                # Leave previous step
+            # 3.b Finish plan step (failure)
+            if status == ActionStatus.failure:
+                action.on_failure(world_state, goal_state)
+                # Stop execution as action failed
+                return PlanStatus.failure
+
+            # 3.a Finish plan step (success)
+            if status == ActionStatus.success:
                 action.on_exit(world_state, goal_state)
-
-                # Apply effects, but some actions deliberately prevent this because they do not solve symbolic problems
                 if action.apply_effects_on_exit:
                     action.apply_effects(world_state, goal_state)
 
-                # Return if not finished (e.g if error occurred)
-                if action_state != finished_state:
-                    return action_state
+        return PlanStatus.success
 
-            # Get next step
-            try:
-                current_step = self.current_plan_step = next(self._plan_steps_it)
+    def update(self):
+        """Advance plan by one execution step."""
+        try:
+            return self._generator.send(self._is_cancelled)
+        except StopIteration as exc:
+            return exc.value
 
-            except StopIteration:
-                return EvaluationState.success
-
-            action = current_step.action
-            goal_state = current_step.goal_state
-
-            # Check preconditions
-            if not action.check_procedural_precondition(world_state, goal_state, is_planning=False):
-                return EvaluationState.failure
-
-            # Enter step
-            action.on_enter(world_state, goal_state)
+    def cancel(self):
+        self._is_cancelled = True
 
 
 _key_action_precedence = attrgetter("action.precedence")
@@ -257,7 +269,7 @@ class Planner(AStarAlgorithm):
         ]
         plan_steps.reverse()
 
-        return ActionPlan(plan_steps)
+        return ActionPlan(plan_steps, self.world_state)
 
     def get_h_score(self, node: ActionNode, goal: GoalNode) -> int:
         """Rough estimate of cost of node, based upon satisfaction of goal state.

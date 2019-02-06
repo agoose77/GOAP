@@ -5,7 +5,7 @@ from typing import NamedTuple, ClassVar, Dict, Any, Tuple
 StateType = Dict[str, Any]
 
 
-class EvaluationState(Enum):
+class ActionStatus(Enum):
     failure = auto()
     success = auto()
     running = auto()
@@ -74,8 +74,8 @@ class Action(metaclass=ActionValidator):
     ) -> bool:
         return True
 
-    def get_status(self, world_state: StateType, goal_state: StateType) -> EvaluationState:
-        return EvaluationState.success
+    def get_status(self, world_state: StateType, goal_state: StateType) -> ActionStatus:
+        return ActionStatus.success
 
     def get_cost(self, world_state: StateType, goal_state: StateType) -> float:
         return self.cost
@@ -84,4 +84,7 @@ class Action(metaclass=ActionValidator):
         pass
 
     def on_exit(self, world_state: StateType, goal_state: StateType):
+        pass
+
+    def on_failure(self, world_state: StateType, goal_state: StateType):
         pass

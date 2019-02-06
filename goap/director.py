@@ -1,6 +1,6 @@
 from logging import getLogger
 
-from .action import EvaluationState
+from .action import ActionStatus
 from .astar import PathNotFoundException
 
 logger = getLogger(__name__)
@@ -72,10 +72,10 @@ class Director:
             else:
                 plan_state = self._plan.update(world_state)
 
-                if plan_state == EvaluationState.running:
+                if plan_state == ActionStatus.running:
                     return
 
-                elif plan_state == EvaluationState.failure:
+                elif plan_state == ActionStatus.failure:
                     logger.warning("Plan failed during execution of '{}'".format(self._plan.current_plan_step))
 
         self._plan = None

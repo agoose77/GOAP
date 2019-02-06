@@ -1,10 +1,11 @@
-from abc import ABC, abstractproperty
-
+from abc import ABC, abstractmethod
+from typing import Dict, List
 from .utils import DictView
 
 
 class State(ABC):
-    @abstractproperty
+    @property
+    @abstractmethod
     def name(self):
         pass
 
@@ -17,16 +18,16 @@ class State(ABC):
 
 class FiniteStateMachine:
     def __init__(self):
-        self._state = None
-        self._states = {}
+        self._state: State = None
+        self._states: Dict[str, State] = {}
         self.states = DictView(self._states)
 
     @property
-    def state(self):
+    def state(self) -> State:
         return self._state
 
     @state.setter
-    def state(self, state):
+    def state(self, state: State):
         if self._state is not None:
             self._state.on_exit()
 
@@ -35,14 +36,14 @@ class FiniteStateMachine:
 
         self._state = state
 
-    def add_state(self, state, set_default=True):
+    def add_state(self, state: State, set_default: bool = True):
         self._states[state.name] = state
 
         # Set default state if none set
         if set_default and self.state is None:
             self.state = state
 
-    def remove_state(self, state):
+    def remove_state(self, state: State):
         if self.state is state:
             self.state = None
 
@@ -51,24 +52,24 @@ class FiniteStateMachine:
 
 class PushDownAutomaton:
     def __init__(self):
-        self._states = {}
-        self._stack = []
+        self._states: Dict[str, State] = {}
+        self._stack: List[State] = []
         self.states = DictView(self._states)
 
     @property
-    def state(self):
+    def state(self) -> State:
         if self._stack:
             return self._stack[-1]
         return None
 
-    def push(self, state):
+    def push(self, state: State):
         if self._stack:
             self._stack[-1].on_exit()
 
         self._stack.append(state)
         state.on_enter()
 
-    def pop(self):
+    def pop(self) -> State:
         if not self._stack:
             raise ValueError("Stack empty")
 
@@ -77,7 +78,7 @@ class PushDownAutomaton:
 
         return state
 
-    def transition_to(self, state):
+    def transition_to(self, state: State):
         if self._stack:
             self.pop()
 
