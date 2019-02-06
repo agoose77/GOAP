@@ -7,16 +7,20 @@ class EvaluationState(Enum):
     running = auto()
 
 
-class Forwarder:
+class EffectReference:
     """Container class to allow a service-API for plugins"""
 
-    def __init__(self, name):
-        self.forward_effect_name = name
+    def __init__(self, name: str):
+        self.forwarded_effect_name = name
 
 
-def expose(name):
+def reference(name: str) -> EffectReference:
     """Convenience function to return Forwarder object"""
-    return Forwarder(name)
+    return EffectReference(name)
+
+
+# WARNING: Deprecated
+expose = reference
 
 
 class ActionValidator(type):
@@ -28,7 +32,6 @@ class ActionValidator(type):
                 preconditions = attrs['preconditions']
             except KeyError:
                 pass
-
             else:
                 # Overwrite effect plugins to ellipsis
                 all_effects = attrs.get("effects", {})
@@ -36,13 +39,14 @@ class ActionValidator(type):
 
         return super().__new__(metacls, cls_name, bases, attrs)
 
+    @staticmethod
     def _validate_preconditions(all_effects, preconditions):
         for name, value in preconditions.items():
             if value is Ellipsis:
                 raise ValueError("Invalid value for precondition '{}'".format(name))
 
-            elif hasattr(value, 'forward_effect_name'):
-                if value.forward_effect_name not in all_effects:
+            elif hasattr(value, 'forwarded_effect_name'):
+                if value.forwarded_effect_name not in all_effects:
                     raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
 
 

@@ -119,8 +119,8 @@ class ActionNode(NodeBase):
                     raise UnsatisfiableGoalEncountered()
 
             # Preconditions can expose effect plugins to a dependency
-            if hasattr(value, "forward_effect_name"):
-                value = current_state[value.forward_effect_name]
+            if hasattr(value, "forwarded_effect_name"):
+                value = current_state[value.forwarded_effect_name]
 
             goal_state[key] = value
 
