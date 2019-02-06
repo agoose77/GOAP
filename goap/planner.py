@@ -5,12 +5,16 @@ from .action import EvaluationState
 from .astar import AStarAlgorithm
 from .utils import ListView
 
-__all__ = "GoalBase", "ActionBase", "Planner", "ActionNode", "GoalNode", "GoalBase"
+__all__ = "Goal", "Planner", "ActionNode", "GoalNode", "Goal"
 
 logger = getLogger(__name__)
 
 
-class GoalBase:
+class UnsatisfiableGoalEncountered(BaseException):
+    pass
+
+
+class Goal:
     state = {}
     priority = 0
 
@@ -25,7 +29,7 @@ class GoalBase:
         return True
 
 
-class NodeBase:
+class Node:
     def __init__(self, current_state=None, goal_state=None):
         if current_state is None:
             current_state = {}
@@ -60,18 +64,14 @@ class NodeBase:
         return True
 
 
-class GoalNode(NodeBase):
+class GoalNode(Node):
     """GOAP A* Goal Node"""
 
     def __repr__(self):
         return "<GOAPAStarGoalNode: {}>".format(self.goal_state)
 
 
-class UnsatisfiableGoalEncountered(BaseException):
-    pass
-
-
-class ActionNode(NodeBase):
+class ActionNode(Node):
     """A* Node with associated GOAP action"""
 
     def __init__(self, action, current_state=None, goal_state=None):

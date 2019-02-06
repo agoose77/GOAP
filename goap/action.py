@@ -27,14 +27,10 @@ class ActionValidator(type):
     def __new__(metacls, cls_name, bases, attrs):
         if bases:
             # Validate precondition plugins
-            try:
-                preconditions = attrs["preconditions"]
-            except KeyError:
-                pass
-            else:
-                # Overwrite effect plugins to ellipsis
-                all_effects = attrs.get("effects", {})
-                metacls._validate_preconditions(all_effects, preconditions)
+            preconditions = attrs.get("preconditions", {})
+            # Overwrite effect plugins to ellipsis
+            all_effects = attrs.get("effects", {})
+            metacls._validate_preconditions(all_effects, preconditions)
 
         return super().__new__(metacls, cls_name, bases, attrs)
 
@@ -44,21 +40,20 @@ class ActionValidator(type):
             if value is Ellipsis:
                 raise ValueError("Invalid value for precondition '{}'".format(name))
 
-            elif hasattr(value, "forwarded_effect_name"):
-                if value.forwarded_effect_name not in all_effects:
-                    raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
+            elif hasattr(value, "forwarded_effect_name") and value.forwarded_effect_name not in all_effects:
+                raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
 
 
-class ActionBase(metaclass=ActionValidator):
+class Action(metaclass=ActionValidator):
     cost: int = 1
     precedence: int = 0
 
     effects: Dict[str, Any] = {}
     preconditions: Dict[str, Any] = {}
 
-    apply_effects_on_exit = True
+    apply_effects_on_exit: bool = True
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Action {!r}>".format(self.__class__.__name__)
 
     def apply_effects(self, world_state: Dict[str, Any], goal_state: Dict[str, Any]):
