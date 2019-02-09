@@ -16,7 +16,6 @@ def look_ahead(iterable):
 def visualise_plan(plan, filename):
     graph = Graph()
 
-    print(plan)
     for i, step in enumerate(plan.steps):
         name = repr_action(step, i)
         graph.add_node(name)
