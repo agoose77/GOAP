@@ -45,8 +45,15 @@ class ActionValidator(type):
             if value is Ellipsis:
                 raise ValueError("Invalid value for precondition '{}'".format(name))
 
-            elif hasattr(value, "forwarded_effect_name") and value.forwarded_effect_name not in all_effects:
-                raise ValueError("Invalid plugin name for precondition '{}': {!r}".format(name, value.name))
+            elif (
+                hasattr(value, "forwarded_effect_name")
+                and value.forwarded_effect_name not in all_effects
+            ):
+                raise ValueError(
+                    "Invalid plugin name for precondition '{}': {!r}".format(
+                        name, value.name
+                    )
+                )
 
 
 class Action(metaclass=ActionValidator):

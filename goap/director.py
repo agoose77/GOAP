@@ -40,7 +40,9 @@ class Director:
                     continue
 
                 if status == PlanStatus.failure:
-                    logger.warning("Plan failed during execution of '{}'".format(plan.current_step))
+                    logger.warning(
+                        "Plan failed during execution of '{}'".format(plan.current_step)
+                    )
                 break
 
     @property
@@ -61,7 +63,6 @@ class Director:
 
     def find_best_plan(self) -> ActionPlan:
         """Find best plan to satisfy most relevant, valid goal."""
-        build_plan = self.planner.find_plan_for_goal
 
         # Try all goals to see if we can satisfy them
         for goal in self.sorted_goals:
@@ -70,7 +71,7 @@ class Director:
                 continue
 
             try:
-                return build_plan(goal.state)
+                return self.planner.find_plan_for_goal(goal.state)
 
             except PathNotFoundException:
                 continue

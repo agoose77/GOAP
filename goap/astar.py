@@ -28,11 +28,6 @@ class AStarAlgorithm(ABC):
         if start is None:
             start = goal
 
-        is_complete = self.is_finished
-        get_neighbours = self.get_neighbours
-        get_g_score = self.get_g_score
-        get_heuristic = self.get_h_score
-
         node_to_g_score = {start: 0}
         node_to_f_score = {start: 0}
         node_to_parent = {}
@@ -43,24 +38,30 @@ class AStarAlgorithm(ABC):
         while open_set:
             current = open_set.pop()
 
-            if is_complete(current, goal, node_to_parent):
+            if self.is_finished(current, goal, node_to_parent):
                 return self.reconstruct_path(current, goal, node_to_parent)
 
             closed_set.add(current)
 
-            for neighbour in get_neighbours(current):
+            for neighbour in self.get_neighbours(current):
                 if neighbour in closed_set:
                     continue
 
-                tentative_g_score = node_to_g_score[current] + get_g_score(current, neighbour)
-                tentative_is_better = tentative_g_score < node_to_g_score.get(neighbour, float_info.max)
+                tentative_g_score = node_to_g_score[current] + self.get_g_score(
+                    current, neighbour
+                )
+                tentative_is_better = tentative_g_score < node_to_g_score.get(
+                    neighbour, float_info.max
+                )
 
                 if neighbour in open_set and not tentative_is_better:
                     continue
 
                 node_to_parent[neighbour] = current
                 node_to_g_score[neighbour] = tentative_g_score
-                node_to_f_score[neighbour] = tentative_g_score + get_heuristic(neighbour, goal)
+                node_to_f_score[neighbour] = tentative_g_score + self.get_h_score(
+                    neighbour, goal
+                )
 
                 open_set.add(neighbour)
 

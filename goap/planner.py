@@ -2,7 +2,19 @@ from collections import defaultdict
 from enum import Enum, auto
 from logging import getLogger
 from operator import attrgetter
-from typing import Any, Dict, NamedTuple, List, Sequence, AbstractSet, Tuple, Iterable, Generator, Optional, DefaultDict
+from typing import (
+    Any,
+    Dict,
+    NamedTuple,
+    List,
+    Sequence,
+    AbstractSet,
+    Tuple,
+    Iterable,
+    Generator,
+    Optional,
+    DefaultDict,
+)
 
 from .action import Action, ActionStatus, StateType
 from .astar import AStarAlgorithm
@@ -65,7 +77,7 @@ class Node:
 
     @property
     def unsatisfied_state(self) -> AbstractSet[Tuple[str, Any]]:
-        """Return the keys of the unsatisfied state symbols between the goal and current state."""
+        """Return the items of the unsatisfied state symbols between the goal and current state."""
         return self.goal_state.items() - self.current_state.items()
 
     def satisfies_goal_state(self, state: StateType) -> bool:
@@ -96,7 +108,12 @@ class GoalNode(Node):
 class ActionNode(Node):
     """A* Node with associated GOAP action."""
 
-    def __init__(self, action: Action, current_state: StateType = None, goal_state: StateType = None):
+    def __init__(
+        self,
+        action: Action,
+        current_state: StateType = None,
+        goal_state: StateType = None,
+    ):
         super().__init__(current_state, goal_state)
 
         self.action = action
@@ -105,7 +122,9 @@ class ActionNode(Node):
         return "{}(action={!r})".format(type(self).__name__, self.action)
 
     @classmethod
-    def create_neighbour(cls, action: Action, parent: "ActionNode", world_state: StateType) -> "ActionNode":
+    def create_neighbour(
+        cls, action: Action, parent: "ActionNode", world_state: StateType
+    ) -> "ActionNode":
         """Create an ActionNode instance, with the same initial starting state as a given action.
 
         :param action: action for the new node
@@ -122,7 +141,10 @@ class ActionNode(Node):
 
     @staticmethod
     def _update_states_from_action(
-        action: Action, current_state: StateType, goal_state: StateType, world_state: StateType
+        action: Action,
+        current_state: StateType,
+        goal_state: StateType,
+        world_state: StateType,
     ):
         """Update internal current and goal states, according to action effects and preconditions
 
@@ -182,12 +204,19 @@ class ActionPlan:
         next(self._generator)
 
     def __repr__(self) -> str:
-        return "{}(plan_steps={!r})".format(type(self).__name__, self._steps)
+        return "{}(plan_steps={!r}, world_state={!r})".format(
+            type(self).__name__, self._steps, self._world_state
+        )
 
     def __str__(self) -> str:
         return "{}: {}".format(
             type(self).__name__,
-            " -> ".join([("{!r}*" if s is self._current_step else "{!r}").format(s) for s in self._steps]),
+            " -> ".join(
+                [
+                    ("{!r}*" if s is self._current_step else "{!r}").format(s)
+                    for s in self._steps
+                ]
+            ),
         )
 
     def _execution_loop(
@@ -209,7 +238,9 @@ class ActionPlan:
             goal_state = step.goal_state
 
             # 1. Initialise plan step
-            if not action.check_procedural_precondition(world_state, goal_state, is_planning=False):
+            if not action.check_procedural_precondition(
+                world_state, goal_state, is_planning=False
+            ):
                 # Stop execution as action cannot be executed
                 return PlanStatus.failure
 
@@ -282,14 +313,18 @@ class Planner(AStarAlgorithm):
         """
         world_state = self.world_state
 
-        goal_node = GoalNode({k: world_state.get(k) for k in goal_state}, goal_state)
+        goal_node = GoalNode(
+            current_state={k: world_state.get(k) for k in goal_state},
+            goal_state=goal_state,
+        )
         node_path = self.find_path(goal_node)
 
         node_path_next = iter(node_path)
         next(node_path_next)
 
         plan_steps = [
-            ActionPlanStep(node.action, next_node.goal_state) for next_node, node in zip(node_path, node_path_next)
+            ActionPlanStep(node.action, next_node.goal_state)
+            for next_node, node in zip(node_path, node_path_next)
         ]
         plan_steps.reverse()
 
@@ -334,7 +369,9 @@ class Planner(AStarAlgorithm):
                 if action is node_action:
                     continue
 
-                if not action.check_procedural_precondition(world_state, goal_state, is_planning=True):
+                if not action.check_procedural_precondition(
+                    world_state, goal_state, is_planning=True
+                ):
                     continue
 
                 # Try and create a neighbour node, except if the goal could not be satisfied
@@ -363,7 +400,12 @@ class Planner(AStarAlgorithm):
         effect_to_actions.default_factory = None
         return effect_to_actions
 
-    def is_finished(self, node: ActionNode, goal: GoalNode, node_to_parent: Dict[ActionNode, ActionNode]) -> bool:
+    def is_finished(
+        self,
+        node: ActionNode,
+        goal: GoalNode,
+        node_to_parent: Dict[ActionNode, ActionNode],
+    ) -> bool:
         """Return True if the given node is a solution to the path-finding problem (satisfies the goal)
 
         :param node: ActionNode object
