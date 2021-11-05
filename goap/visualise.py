@@ -1,9 +1,9 @@
 from matplotlib import pyplot as plt
-from networkx import Graph, draw_networkx
+from networkx import DiGraph, draw_networkx
 
 
-def repr_action(action, i):
-    return "{!r}_{}".format(action.action.__class__.__name__, i)
+def repr_step(step):
+    return step.action.__class__.__name__
 
 
 def look_ahead(iterable):
@@ -14,16 +14,16 @@ def look_ahead(iterable):
 
 
 def visualise_plan(plan, filename):
-    graph = Graph()
+    graph = DiGraph()
 
-    for i, step in enumerate(plan.steps):
-        name = repr_action(step, i)
+    for i, step in enumerate(plan):
+        name = repr_step(step)
         graph.add_node(name)
 
-    if len(plan.steps) > 1:
-        for i, (step, next_step) in enumerate(look_ahead(plan.steps)):
-            name = repr_action(step, i)
-            next_name = repr_action(next_step, i + 1)
+    if len(plan) > 1:
+        for i, (step, next_step) in enumerate(look_ahead(plan)):
+            name = repr_step(step)
+            next_name = repr_step(next_step)
             graph.add_edge(name, next_name)
 
     plt.axis("off")

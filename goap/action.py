@@ -1,8 +1,7 @@
 from enum import auto, Enum
-from typing import NamedTuple, ClassVar, Dict, Any, Tuple
+from typing import ClassVar, Dict, Any, Tuple
 
-
-StateType = Dict[str, Any]
+State = Dict[str, Any]
 
 
 class ActionStatus(Enum):
@@ -11,19 +10,31 @@ class ActionStatus(Enum):
     running = auto()
 
 
-class EffectReference(NamedTuple):
-    """Container class to allow a service-API for plugins."""
+"""
+plugin(curr)  match any value (not possible without a backwards feature
+callable(curr) match returned value
 
-    forwarded_effect_name: str
+class SomeAction:
+    effects = {
+        "provide_resource": plugin()
+    }
+    preconditions = {
+        "log_resource": ref("provide_resource")
+    }
+
+"""
+
+
+class EffectReference:
+    """Dynamic precondition that references an effect."""
+
+    def __init__(self, name):
+        self.goap_effect_reference = name
 
 
 def reference(name: str) -> EffectReference:
     """Convenience function to return Forwarder object."""
     return EffectReference(name)
-
-
-# WARNING: Deprecated
-expose = reference
 
 
 class ActionValidator(type):
@@ -34,64 +45,41 @@ class ActionValidator(type):
             # Validate precondition plugins
             preconditions = attrs.get("preconditions", {})
             # Overwrite effect plugins to ellipsis
-            all_effects = attrs.get("effects", {})
-            mcs._validate_preconditions(all_effects, preconditions)
+            effects = attrs.get("effects", {})
+            attrs['service_names'] = [k for k, v in effects.items() if v is Ellipsis]
+            mcs._validate_preconditions(effects, preconditions)
 
         return super().__new__(mcs, cls_name, bases, attrs)
 
     @staticmethod
-    def _validate_preconditions(all_effects: StateType, preconditions: StateType):
+    def _validate_preconditions(all_effects: State, preconditions: State):
         for name, value in preconditions.items():
             if value is Ellipsis:
-                raise ValueError("Invalid value for precondition '{}'".format(name))
+                raise ValueError(
+                    f"Preconditions cannot be services (...): '{name}'")
 
             elif (
-                hasattr(value, "forwarded_effect_name")
-                and value.forwarded_effect_name not in all_effects
+                    hasattr(value, "goap_effect_reference")
+                    and value.goap_effect_reference not in all_effects
             ):
                 raise ValueError(
-                    "Invalid plugin name for precondition '{}': {!r}".format(
-                        name, value.name
-                    )
+                    f"Invalid reference name for precondition '{name}': {value.name!r}"
                 )
 
 
 class Action(metaclass=ActionValidator):
-    effects: ClassVar[StateType] = {}
-    preconditions: ClassVar[StateType] = {}
+    effects: ClassVar[State] = {}
+    preconditions: ClassVar[State] = {}
+    service_names: ClassVar[list[str]] = []
 
     cost = 1.0
     precedence = 0.0
     apply_effects_on_exit = True
 
-    def apply_effects(self, world_state: StateType, goal_state: StateType):
-        """Apply action effects to state, resolving any variables from goal state
-
-        :param world_state: state to modify
-        :param goal_state: source for variables
-        """
-        for key, value in self.effects.items():
-            if value is Ellipsis:
-                value = goal_state[key]
-
-            world_state[key] = value
-
     def check_procedural_precondition(
-        self, world_state: StateType, goal_state: StateType, is_planning: bool = True
+            self, services: State, is_planning: bool
     ) -> bool:
         return True
 
-    def get_status(self, world_state: StateType, goal_state: StateType) -> ActionStatus:
-        return ActionStatus.success
-
-    def get_cost(self, world_state: StateType, goal_state: StateType) -> float:
+    def get_cost(self, services) -> float:
         return self.cost
-
-    def on_enter(self, world_state: StateType, goal_state: StateType):
-        pass
-
-    def on_exit(self, world_state: StateType, goal_state: StateType):
-        pass
-
-    def on_failure(self, world_state: StateType, goal_state: StateType):
-        pass

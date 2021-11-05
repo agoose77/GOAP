@@ -40,7 +40,7 @@ class PriorityQueue:
 
     def add(self, item):
         if item in self._dict:
-            raise ValueError("{} already in queue".format(item))
+            raise ValueError(f"{item} already in queue")
 
         element = PriorityElement(item, self._key(item))
         self._dict[item] = element
