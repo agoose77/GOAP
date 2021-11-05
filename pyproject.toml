@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "goap"
+name = "goap-ai"
 version = "1.0.0"
 description = "Goal oriented action programming"
 authors = ["Angus Hollands <goosey15@gmail.com>"]
 license = "MIT"
+packages = [
+    { include = "goap" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.6"
