@@ -46,7 +46,7 @@ class ActionValidator(type):
             preconditions = attrs.get("preconditions", {})
             # Overwrite effect plugins to ellipsis
             effects = attrs.get("effects", {})
-            attrs['service_names'] = [k for k, v in effects.items() if v is Ellipsis]
+            attrs["service_names"] = [k for k, v in effects.items() if v is Ellipsis]
             mcs._validate_preconditions(effects, preconditions)
 
         return super().__new__(mcs, cls_name, bases, attrs)
@@ -55,12 +55,11 @@ class ActionValidator(type):
     def _validate_preconditions(all_effects: State, preconditions: State):
         for name, value in preconditions.items():
             if value is Ellipsis:
-                raise ValueError(
-                    f"Preconditions cannot be services (...): '{name}'")
+                raise ValueError(f"Preconditions cannot be services (...): '{name}'")
 
             elif (
-                    hasattr(value, "goap_effect_reference")
-                    and value.goap_effect_reference not in all_effects
+                hasattr(value, "goap_effect_reference")
+                and value.goap_effect_reference not in all_effects
             ):
                 raise ValueError(
                     f"Invalid reference name for precondition '{name}': {value.name!r}"
@@ -76,9 +75,7 @@ class Action(metaclass=ActionValidator):
     precedence = 0.0
     apply_effects_on_exit = True
 
-    def check_procedural_precondition(
-            self, services: State, is_planning: bool
-    ) -> bool:
+    def check_procedural_precondition(self, services: State, is_planning: bool) -> bool:
         return True
 
     def get_cost(self, services) -> float:

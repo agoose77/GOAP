@@ -58,9 +58,7 @@ class AStarAlgorithm(ABC):
 
                 parents[neighbour] = current
                 g_scores[neighbour] = tentative_g_score
-                f_scores[neighbour] = tentative_g_score + self.get_h_score(
-                    neighbour
-                )
+                f_scores[neighbour] = tentative_g_score + self.get_h_score(neighbour)
 
                 candidates.add(neighbour)
 

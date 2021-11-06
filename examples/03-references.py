@@ -21,8 +21,10 @@ class BecomeUndead(Action):
 
 class PerformMagic(Action):
     effects = {"performs_magic": ...}
-    preconditions = {"chant_incantation": reference("performs_magic"),
-                     "cast_spell": reference("performs_magic")}
+    preconditions = {
+        "chant_incantation": reference("performs_magic"),
+        "cast_spell": reference("performs_magic"),
+    }
 
 
 class ChantIncantation(Action):
