@@ -4,27 +4,6 @@ from typing import ClassVar, Dict, Any, Tuple, List
 State = Dict[str, Any]
 
 
-class ActionStatus(Enum):
-    failure = auto()
-    success = auto()
-    running = auto()
-
-
-"""
-plugin(curr)  match any value (not possible without a backwards feature
-callable(curr) match returned value
-
-class SomeAction:
-    effects = {
-        "provide_resource": plugin()
-    }
-    preconditions = {
-        "log_resource": ref("provide_resource")
-    }
-
-"""
-
-
 class EffectReference:
     """Dynamic precondition that references an effect."""
 
