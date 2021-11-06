@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict
 
 from ..action import Action
 
-State = dict[str, Any]
+State = Dict[str, Any]
 
 
 @dataclass(frozen=True)
