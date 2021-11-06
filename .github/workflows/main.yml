@@ -38,7 +38,7 @@ jobs:
       
       - name: Install deps
         run: |
-          poetry install
+          POETRY_VIRTUALENVS_CREATE=0 poetry install
           
       - name: Run tests
         run: python3 -m pytest
