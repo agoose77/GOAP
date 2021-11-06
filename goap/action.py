@@ -1,5 +1,5 @@
 from enum import auto, Enum
-from typing import ClassVar, Dict, Any, Tuple
+from typing import ClassVar, Dict, Any, Tuple, List
 
 State = Dict[str, Any]
 
@@ -70,7 +70,7 @@ class ActionValidator(type):
 class Action(metaclass=ActionValidator):
     effects: ClassVar[State] = {}
     preconditions: ClassVar[State] = {}
-    service_names: ClassVar[list[str]] = []
+    service_names: ClassVar[List[str]] = []
 
     cost = 1.0
     precedence = 0.0

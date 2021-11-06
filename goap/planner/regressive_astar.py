@@ -1,7 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from operator import attrgetter
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 
 from .plan import PlanStep
 from ..action import Action
@@ -11,7 +11,7 @@ from ..algo import AStarAlgorithm
 # http://alumni.media.mit.edu/~jorkin/GOAP_draft_AIWisdom2_2003.pdf
 
 
-State = dict[str, Any]
+State = Dict[str, Any]
 
 _NOT_DEFINED = object()
 
@@ -74,7 +74,7 @@ class RegressiveGOAPAStarNode:
         return not self.unsatisfied_keys
 
     @property
-    def unsatisfied_keys(self) -> list[str]:
+    def unsatisfied_keys(self) -> List[str]:
         return [k for k, v in self.goal_state.items() if
                 self.current_state.get(k, _NOT_DEFINED) != v]
 
@@ -84,11 +84,11 @@ _key_action_precedence = attrgetter("action.precedence")
 
 class RegressiveGOAPAStarSearch(AStarAlgorithm):
 
-    def __init__(self, actions: list[Action]):
+    def __init__(self, actions: List[Action]):
         self._actions = actions
         self._effect_to_action = self._create_effect_table(actions)
 
-    def _create_effect_table(self, actions: list[Action]):
+    def _create_effect_table(self, actions: List[Action]):
         effect_to_actions = defaultdict(list)
 
         for action in actions:
