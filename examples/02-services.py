@@ -35,7 +35,7 @@ if __name__ == "__main__":
     print("Goal State:   ", goal_state)
 
     actions = [BecomeUndead(), Haunt(), ChantIncantation()]
-    planner = RegressivePlanner(actions)
+    planner = RegressivePlanner(world_state, actions)
 
-    plan = planner.find_plan(world_state, goal_state)
+    plan = planner.find_plan(goal_state)
     print(plan)
