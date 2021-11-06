@@ -25,7 +25,9 @@ class ActionValidator(type):
             preconditions = attrs.get("preconditions", {})
             # Overwrite effect plugins to ellipsis
             effects = attrs.get("effects", {})
+            # Compute names of service-like effects
             attrs["service_names"] = [k for k, v in effects.items() if v is Ellipsis]
+            # Catch common errors with preconditions
             mcs._validate_preconditions(effects, preconditions)
 
         return super().__new__(mcs, cls_name, bases, attrs)
