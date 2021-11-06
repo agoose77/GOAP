@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "goap-ai"
-version = "2.0.0rc0"
+version = "2.0.0rc1"
 description = "Goal oriented action programming"
 authors = ["Angus Hollands <goosey15@gmail.com>"]
 license = "MIT"
@@ -9,7 +9,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.7"
 matplotlib = { version = ">=3.0", optional = true }
 networkx = { version = ">=2.3", optional = true }
 
