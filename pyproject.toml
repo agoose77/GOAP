@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "goap-ai"
-version = "1.0.0"
+version = "2.0.0"
 description = "Goal oriented action programming"
 authors = ["Angus Hollands <goosey15@gmail.com>"]
 license = "MIT"
@@ -17,6 +17,7 @@ networkx = { version = ">=2.3", optional = true }
 plot = ["matplotlib", "networkx"]
 
 [tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
