@@ -13,7 +13,13 @@ from ..algo import AStarAlgorithm
 
 State = Dict[str, Any]
 
-_NOT_DEFINED = object()
+
+class _NotDefined:
+    def __repr__(self):
+        return "NOT_DEFINED"
+
+
+NOT_DEFINED = _NotDefined()
 
 
 @dataclass(frozen=True)
@@ -34,7 +40,9 @@ class RegressiveGOAPAStarNode:
         # i.e. x -- action --> y is encoded as (x, None), (y, action)
         return other.action.get_cost(other.services)
 
-    def apply_action(self, action: Action) -> "RegressiveGOAPAStarNode":
+    def apply_action(
+            self, world_state: State, action: Action
+    ) -> "RegressiveGOAPAStarNode":
         # New node is a consequence of transitioning from
         # node to neighbour via action (which is the edge)
         current_state = self.current_state.copy()
@@ -50,11 +58,10 @@ class RegressiveGOAPAStarNode:
             # Normally we work backwards from the goal by building up a current state
             # that ultimately matches our goal state.
             # However, when an action shares a precondition and effect, we effectively
-            # "update" our goal locally, so we need to apply the *precondition*
-            # (our "new" goal) rather than the effect (our "old" goal)
-
+            # "update" our goal locally, so just as when we encounter a new unseen goal,
+            # we need to take the current state from the world state
             elif key in action.preconditions:
-                value = action.preconditions[key]
+                value = world_state[key]
 
             current_state[key] = value
 
@@ -67,6 +74,10 @@ class RegressiveGOAPAStarNode:
 
             goal_state[key] = value
 
+            # Add new fields to current state
+            if key not in current_state:
+                current_state[key] = world_state.get(key, NOT_DEFINED)
+
         return self.__class__(current_state, goal_state, action)
 
     @property
@@ -75,18 +86,22 @@ class RegressiveGOAPAStarNode:
 
     @property
     def unsatisfied_keys(self) -> List[str]:
-        return [k for k, v in self.goal_state.items() if
-                self.current_state.get(k, _NOT_DEFINED) != v]
+        return [
+            k
+            for k, v in self.goal_state.items()
+            # Allow keys not to be defined (e.g. for internal fields)
+            if self.current_state[k] != v
+        ]
 
 
 _key_action_precedence = attrgetter("action.precedence")
 
 
 class RegressiveGOAPAStarSearch(AStarAlgorithm):
-
-    def __init__(self, actions: List[Action]):
+    def __init__(self, world_state: State, actions: List[Action]):
         self._actions = actions
         self._effect_to_action = self._create_effect_table(actions)
+        self._world_state = world_state
 
     def _create_effect_table(self, actions: List[Action]):
         effect_to_actions = defaultdict(list)
@@ -118,7 +133,7 @@ class RegressiveGOAPAStarSearch(AStarAlgorithm):
                     continue
 
                 # Compute neighbour after following action edge.
-                neighbour = node.apply_action(action)
+                neighbour = node.apply_action(self._world_state, action)
 
                 # Ensure we can visit this node
                 if not action.check_procedural_precondition(
@@ -127,30 +142,45 @@ class RegressiveGOAPAStarSearch(AStarAlgorithm):
                     continue
 
                 neighbours.append(neighbour)
-
         neighbours.sort(key=_key_action_precedence)
         return neighbours
 
     def get_h_score(self, node: RegressiveGOAPAStarNode):
         return len(node.unsatisfied_keys)
 
-    def get_g_score(self, node: RegressiveGOAPAStarNode,
-                    neighbour: RegressiveGOAPAStarNode):
+    def get_g_score(
+            self, node: RegressiveGOAPAStarNode, neighbour: RegressiveGOAPAStarNode
+    ):
         return node.compute_cost(neighbour)
 
 
 class RegressivePlanner:
-    def __init__(self, actions):
+    def __init__(self, world_state, actions):
         self._actions = actions
-        self._search = RegressiveGOAPAStarSearch(actions)
+        self._world_state = world_state
+        self._search = RegressiveGOAPAStarSearch(world_state, actions)
 
-    def find_plan(self, current_state: State, goal_state: State):
-        start = RegressiveGOAPAStarNode(current_state, goal_state, None)
-        path = self._search.find_path(start, goal_state)
+    @property
+    def actions(self):
+        return self._actions
+
+    @property
+    def world_state(self):
+        return self._world_state
+
+    def _create_plan_steps(self, path: List[RegressiveGOAPAStarNode]) -> List[PlanStep]:
         plan = []
         for node in path:
             if node.action is None:
                 break
-            step = PlanStep(node.action, node.services)
-            plan.append(step)
+            plan.append(PlanStep(node.action, node.services))
         return plan
+
+    def find_plan(self, goal_state: State) -> List[PlanStep]:
+        # Initially populate the current state with keys from the goal, using
+        # current values
+        initial_state = {k: self._world_state[k] for k in goal_state}
+        start = RegressiveGOAPAStarNode(initial_state, goal_state, None)
+
+        path = self._search.find_path(start, goal_state)
+        return self._create_plan_steps(path)
