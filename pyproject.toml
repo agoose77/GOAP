@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "goap-ai"
-version = "2.0.0rc1"
+version = "2.0.0rc2"
 description = "Goal oriented action programming"
 authors = ["Angus Hollands <goosey15@gmail.com>"]
 license = "MIT"
