@@ -61,7 +61,7 @@ class RegressiveGOAPAStarNode:
             # "update" our goal locally, so just as when we encounter a new unseen goal,
             # we need to take the current state from the world state
             elif key in action.preconditions:
-                value = world_state[key]
+                value = world_state.get(key, NOT_DEFINED)
 
             current_state[key] = value
 
