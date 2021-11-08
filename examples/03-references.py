@@ -38,7 +38,7 @@ class CastSpell(Action):
 
 
 if __name__ == "__main__":
-    world_state = {"is_spooky": False}
+    world_state = {"is_spooky": False, "is_undead": False}
     goal_state = {"is_spooky": True}
     print("Initial State:", world_state)
     print("Goal State:   ", goal_state)
