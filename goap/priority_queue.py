@@ -48,7 +48,7 @@ class PriorityQueue:
 
     def pop(self):
         while True:
-            element = heappop(self._heap)
+            element = self._heap.pop()
 
             if not element.removed:
                 element.removed = True
