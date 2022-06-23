@@ -24,21 +24,18 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-
-      - name: Setup Python
-        uses: actions/setup-python@v2.2.2
-        with:
-          # Version range or exact version of a Python version to use, using SemVer's version range syntax.
-          python-version: 3.7
           
-      - name: Setup Poetry
-        # You may pin to the exact commit or the version.
-        # uses: Gr1N/setup-poetry@09236184f6c1ab47c0dc9c1001c7fe200cf2afb0
-        uses: Gr1N/setup-poetry@v7
+      - uses: pdm-project/setup-pdm@main
+        name: Setup PDM
+        with:
+          python-version: 3.7  # Version range or exact version of a Python version to use, the same as actions/setup-python
+          architecture: x64    # The target architecture (x86, x64) of the Python interpreter. the same as actions/setup-python
+          prerelease: true     # Allow prerelease versions to be installed
+          enable-pep582: false  # Enable PEP 582 package loading globally
       
       - name: Install deps
         run: |
-          POETRY_VIRTUALENVS_CREATE=0 poetry install
+          pdm install
           
       - name: Run tests
         run: python3 -m pytest
