@@ -142,7 +142,7 @@ class RegressiveGOAPAStarSearch(AStarAlgorithm):
                     continue
 
                 neighbours.append(neighbour)
-        neighbours.sort(key=_key_action_precedence)
+        neighbours.sort(key=_key_action_precedence, reverse=True)
         return neighbours
 
     def get_h_score(self, node: RegressiveGOAPAStarNode):
