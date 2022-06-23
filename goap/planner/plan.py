@@ -10,8 +10,3 @@ State = Dict[str, Any]
 class PlanStep:
     action: Action
     services: State
-
-
-class Plan:
-    def __init__(self, actions):
-        pass

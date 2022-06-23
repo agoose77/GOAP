@@ -1,2 +1,2 @@
-from .plan import Plan, PlanStep
+from .plan import PlanStep
 from .regressive_astar import RegressivePlanner
