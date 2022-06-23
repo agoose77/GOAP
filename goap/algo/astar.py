@@ -29,7 +29,7 @@ class AStarAlgorithm(ABC):
         f_scores = {start: self.get_h_score(start)}
         parents = {}
 
-        candidates = PriorityQueue([start], key=lambda n: f_scores[n])
+        candidates = PriorityQueue([start], key=f_scores.__getitem__)
         rejects = set()
 
         i = 0
