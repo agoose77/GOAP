@@ -21,7 +21,7 @@ includes = ["goap"]
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "pytest<7.0.0,>=6.2.5",
+    "pytest>=6",
 ]
 [build-system]
 requires = ["pdm-pep517"]
