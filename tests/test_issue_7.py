@@ -26,4 +26,4 @@ def test():
     planner = RegressivePlanner(world_state, actions)
 
     plan = planner.find_plan(goal_state)
-    assert plan_as_contents(plan) == [(Action2, {}), (Action1, {}), (Action3, {})], plan
+    assert plan_as_contents(plan) == [(Action1, {}), (Action2, {}), (Action3, {})], plan

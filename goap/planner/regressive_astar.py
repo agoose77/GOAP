@@ -74,9 +74,9 @@ class RegressiveGOAPAStarNode:
 
             goal_state[key] = value
 
-            # Add new fields to current state
-            if key not in current_state:
-                current_state[key] = world_state.get(key, NOT_DEFINED)
+            # Add fields to current state, overwriting if already defined
+            # This ensure that we produce valid plans
+            current_state[key] = world_state.get(key, NOT_DEFINED)
 
         return self.__class__(current_state, goal_state, action)
 
@@ -128,7 +128,7 @@ class RegressiveGOAPAStarSearch(AStarAlgorithm):
 
             for action in self._effect_to_action[key]:
                 effect_value = action.effects[key]
-                # If this effect does not satisfies the goal
+                # If this effect does not satisfy the goal
                 if effect_value != goal_value and effect_value is not Ellipsis:
                     continue
 
