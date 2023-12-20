@@ -34,8 +34,7 @@ jobs:
           enable-pep582: false  # Enable PEP 582 package loading globally
       
       - name: Install deps
-        run: |
-          pdm install
+        run: pdm install -d
           
       - name: Run tests
-        run: python3 -m pytest
+        run: python -m pytest
